@@ -1,4 +1,4 @@
-name: platform-todo
+name: msq
 
 # Per-product DB login (P1.2/D8) — read/write only task + read-only iam/entity/geo.
 # DB_CONTAINER_NAME/DB_NAME point at msq-core's Postgres container — see the
@@ -24,8 +24,8 @@ x-web-public-args: &web-public-args
 services:
   tasks-service:
     build:
-      context: .
-      dockerfile: services/tasks-service/Dockerfile
+      context: ..
+      dockerfile: msq-todo/services/tasks-service/Dockerfile
     restart: unless-stopped
     env_file: .env
     environment:
@@ -36,8 +36,8 @@ services:
 
   todo-web:
     build:
-      context: .
-      dockerfile: apps/todo-web/Dockerfile
+      context: ..
+      dockerfile: msq-todo/apps/todo-web/Dockerfile
       args: *web-public-args
     restart: unless-stopped
     env_file: .env

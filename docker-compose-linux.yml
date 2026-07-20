@@ -1,4 +1,4 @@
-name: platform-todo
+name: msq
 
 x-db-env-task: &db-env-task
   DATABASE_URL: postgres://${DB_TASK_SVC_USER}:${DB_TASK_SVC_PASSWORD}@${DB_CONTAINER_NAME}:5432/${DB_NAME}
