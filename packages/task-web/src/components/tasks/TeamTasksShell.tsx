@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { SessionUser } from '@platform/types';
+import { Alert, PageBody, PageHeader } from '@platform/ui-kit';
 import { tasks as tasksApi, taskLists as taskListsApi } from '../../lib/api/client';
 import type { TaskListView, TaskPriorityName, TaskStatusName, TaskView } from '../../lib/tasks/types';
 import { TASK_STATUS_OPTIONS, TASK_PRIORITY_OPTIONS, formatDueDate, isOverdue } from '../../lib/tasks/format';
@@ -50,19 +51,17 @@ export default function TeamTasksShell({ actor }: Props) {
   }, []);
 
   return (
-    <div className="w-full space-y-6 px-3 py-4 sm:px-4">
-      <TasksTabs actor={actor} />
+    <div className="flex w-full flex-1 flex-col">
+      <PageHeader
+        title="Team tasks"
+        subtitle="Tasks across your team."
+        tabs={<TasksTabs actor={actor} />}
+      />
 
-      <div>
-        <h1 className="text-2xl font-bold text-[#0F172A]">Team tasks</h1>
-        <p className="mt-1 text-sm text-[#64748B]">Tasks across your team.</p>
-      </div>
+      <PageBody>
+        {error && <Alert tone="error">{error}</Alert>}
 
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">{error}</div>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
         <select
           value={assigneeId}
           onChange={(e) => setAssigneeId(e.target.value)}
@@ -133,6 +132,7 @@ export default function TeamTasksShell({ actor }: Props) {
           </table>
         </div>
       )}
+      </PageBody>
 
       <TaskDetailDrawer
         task={selectedTask}

@@ -28,10 +28,13 @@ export default function TaskGroupedList({ tasks, onOpen, onStatusChange }: Props
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {DUE_BUCKET_ORDER.filter((b) => groups.has(b)).map((bucket) => (
         <section key={bucket} className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-[#0b6cbf]">
+          {/* Muted micro-label, matching the LMS stat-card headings — #0b6cbf is
+              reserved for interactive/active state, and a blue static heading
+              reads as a link. */}
+          <h3 className="text-[11px] font-semibold uppercase tracking-widest text-[#64748B]">
             {DUE_BUCKET_LABELS[bucket]} ({groups.get(bucket)!.length})
           </h3>
           <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-sm">

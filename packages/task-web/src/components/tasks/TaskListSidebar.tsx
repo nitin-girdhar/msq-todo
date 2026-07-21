@@ -15,7 +15,7 @@ export default function TaskListSidebar({ lists, activeListId, onSelect, onListC
   const [createOpen, setCreateOpen] = useState(false);
 
   return (
-    <aside className="w-full shrink-0 space-y-2 sm:w-56">
+    <aside className="w-full shrink-0 space-y-2 lg:w-48">
       <div className="flex items-center justify-between">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-[#64748B]">My lists</h2>
         <button
@@ -30,11 +30,13 @@ export default function TaskListSidebar({ lists, activeListId, onSelect, onListC
         </button>
       </div>
 
-      <nav className="space-y-1">
+      {/* Below lg the rail is a scrolling chip strip, not a stacked column —
+          stacked, it pushed the first task a full screen down on mobile. */}
+      <nav className="tabs-scrollbar flex gap-1 pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
         <button
           type="button"
           onClick={() => onSelect(null)}
-          className={`block w-full rounded-lg px-3 py-1.5 text-left text-sm ${
+          className={`shrink-0 rounded-lg px-3 py-1.5 text-left text-sm lg:w-full ${
             activeListId === null ? 'bg-[#EFF6FF] font-semibold text-[#0b6cbf]' : 'text-[#475569] hover:bg-[#F8FAFC]'
           }`}
         >
@@ -45,7 +47,7 @@ export default function TaskListSidebar({ lists, activeListId, onSelect, onListC
             key={list.id}
             type="button"
             onClick={() => onSelect(list.id)}
-            className={`block w-full truncate rounded-lg px-3 py-1.5 text-left text-sm ${
+            className={`shrink-0 truncate rounded-lg px-3 py-1.5 text-left text-sm lg:w-full ${
               activeListId === list.id ? 'bg-[#EFF6FF] font-semibold text-[#0b6cbf]' : 'text-[#475569] hover:bg-[#F8FAFC]'
             }`}
             title={list.name}
