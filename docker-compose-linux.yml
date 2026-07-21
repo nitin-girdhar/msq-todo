@@ -10,7 +10,7 @@ x-db-env-task: &db-env-task
 
 services:
   tasks-service:
-    image: crm-tasks-service
+    image: msq-tasks-service
     restart: unless-stopped
     env_file: .env
     environment:
@@ -20,7 +20,7 @@ services:
       - "${TASKS_SERVICE_PORT}"
 
   todo-web:
-    image: crm-todo-web
+    image: msq-todo-web
     restart: unless-stopped
     env_file: .env
     environment:
