@@ -18,12 +18,12 @@ export const TASK_RANKS = {
 
 /** May request the team/subtree task scope (?scope=team). */
 export function canViewTeamTasks(actor: CapabilityHolder): boolean {
-  return can(actor, CAPABILITY.TASKS_TEAM_VIEW);
+  return can(actor, CAPABILITY.TASKS_VIEW_TEAM);
 }
 
 /** May request the whole-org task scope (?scope=org). */
 export function canViewOrgTasks(actor: CapabilityHolder): boolean {
-  return can(actor, CAPABILITY.TASKS_ADMIN);
+  return can(actor, CAPABILITY.TASKS_VIEW_ORG);
 }
 
 /**
@@ -31,7 +31,7 @@ export function canViewOrgTasks(actor: CapabilityHolder): boolean {
  * PATCH/DELETE another user's task, delete any list.
  */
 export function canAdministerTasks(actor: CapabilityHolder): boolean {
-  return can(actor, CAPABILITY.TASKS_ADMIN);
+  return can(actor, CAPABILITY.TASKS_EDIT_ANY);
 }
 
 /** May assign or reassign a task to someone else. */

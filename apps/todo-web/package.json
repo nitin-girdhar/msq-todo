@@ -17,9 +17,10 @@
   },
   "dependencies": {
     "@platform/auth-constants": "workspace:*",
+    "@platform/authz": "workspace:*",
+    "@platform/rbac": "workspace:*",
     "@platform/types": "workspace:*",
     "@platform/ui-kit": "workspace:*",
-    "@platform/authz": "workspace:*",
     "@task/authz": "workspace:*",
     "@task/web": "workspace:*",
     "jose": "^6.2.3",

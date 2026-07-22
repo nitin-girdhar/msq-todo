@@ -33,9 +33,9 @@ export default async function TaskModuleShell({ children }: Props) {
           homeHref="/tasks"
           title="Fitclass - Tasks"
         />
-        <MobileSidebar role={session.role} items={TASK_NAV} />
+        <MobileSidebar actor={session} items={TASK_NAV} />
         <div className="flex w-full flex-1 lg:min-h-0 lg:overflow-hidden">
-          <AppSidebar role={session.role} items={TASK_NAV} />
+          <AppSidebar actor={session} items={TASK_NAV} />
           <main className="flex w-full min-w-0 flex-1 flex-col lg:overflow-y-auto">
             {children}
           </main>

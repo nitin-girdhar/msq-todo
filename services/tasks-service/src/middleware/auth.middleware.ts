@@ -24,8 +24,9 @@ export async function authenticate(request: FastifyRequest): Promise<void> {
   // the SAME resolved list (/auth/me serves it), so they cannot drift.
   const capabilities = await capabilitiesFor(tenant_id, role_name);
 
-  // Replaces task.member_roles' provisioning gate.
-  if (!can({ capabilities }, CAPABILITY.TASKS_VIEW)) {
+  // Replaces task.member_roles' provisioning gate. The TOOL node is the single
+  // row that admits or excludes a role from Tasks entirely.
+  if (!can({ capabilities }, CAPABILITY.TASKS)) {
     throw new ForbiddenError('You do not have access to the Tasks product in this organization');
   }
 
