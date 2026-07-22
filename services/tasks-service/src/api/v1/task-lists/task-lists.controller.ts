@@ -4,8 +4,8 @@ import type { TaskCtx } from './task-lists.repository.js';
 import type { CreateTaskListInput, UpdateTaskListInput, ListTaskListsInput } from '@task/validation';
 
 function ctxOf(request: FastifyRequest): TaskCtx {
-  const { org_id, user_id, role, tenant_id, rank } = request.auth;
-  return { org_id, user_id, role, tenant_id, rank };
+  const { org_id, user_id, role, tenant_id, rank, capabilities } = request.auth;
+  return { org_id, user_id, role, tenant_id, rank, capabilities };
 }
 
 export class TaskListsController {

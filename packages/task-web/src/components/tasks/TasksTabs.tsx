@@ -11,7 +11,7 @@ interface Props {
 // In-page sub-navigation for the Tasks module — mirrors LeaveTabs.
 export default function TasksTabs({ actor }: Props) {
   const tabs: PageTab[] = [{ href: '/tasks', label: 'My Tasks', exact: true }];
-  if (canViewTeamTasks(actor.rank)) {
+  if (canViewTeamTasks(actor)) {
     tabs.push({ href: '/tasks/team', label: 'Team' });
   }
 

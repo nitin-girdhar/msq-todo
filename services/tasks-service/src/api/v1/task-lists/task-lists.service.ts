@@ -6,10 +6,10 @@ import type { TaskCtx } from './task-lists.repository.js';
 import type { CreateTaskListInput, UpdateTaskListInput, ListTaskListsInput } from '@task/validation';
 
 export async function listTaskLists(ctx: TaskCtx, filters: ListTaskListsInput) {
-  if (filters.scope === 'team' && !canViewTeamTasks(ctx.rank)) {
+  if (filters.scope === 'team' && !canViewTeamTasks(ctx)) {
     throw new ForbiddenError('Insufficient rank for the team task-list scope');
   }
-  if (filters.scope === 'org' && !canViewOrgTasks(ctx.rank)) {
+  if (filters.scope === 'org' && !canViewOrgTasks(ctx)) {
     throw new ForbiddenError('Insufficient rank for the org task-list scope');
   }
   return repo.listTaskLists(ctx, filters);
@@ -21,7 +21,7 @@ export async function listTaskLists(ctx: TaskCtx, filters: ListTaskListsInput) {
 async function assertCanView(ctx: TaskCtx, row: repo.TaskListRow): Promise<void> {
   if (row.owner_id === ctx.user_id) return;
   if (row.visibility === 'org') return;
-  if (row.visibility === 'team' && (canAdministerTasks(ctx.rank) || (await repo.isManagerOf(ctx, row.owner_id, ctx.user_id)))) {
+  if (row.visibility === 'team' && (canAdministerTasks(ctx) || (await repo.isManagerOf(ctx, row.owner_id, ctx.user_id)))) {
     return;
   }
   // private (or team without authority) → hidden.
@@ -50,7 +50,7 @@ async function loadForWrite(ctx: TaskCtx, id: string): Promise<repo.TaskListRow>
   const row = await repo.getTaskListRow(ctx, id);
   if (!row) throw new NotFoundError('Task list not found');
   // Owner or org admin may mutate/delete.
-  if (row.owner_id !== ctx.user_id && !canAdministerTasks(ctx.rank)) {
+  if (row.owner_id !== ctx.user_id && !canAdministerTasks(ctx)) {
     throw new ForbiddenError('Only the list owner or an org admin can modify this list');
   }
   return row;

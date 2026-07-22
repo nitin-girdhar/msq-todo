@@ -1,34 +1,40 @@
-// ── Tasks ───────────────────────────────────────────────────────────────────
-// Task authority is rank-based and self-documenting. Fine-grained per-task rules
-// (creator / assignee / manager-of-assignee) are enforced in the tasks-service
-// against the specific rows; these helpers cover the coarse scope gates.
+// ── Tasks authority (Tier C3: capability-driven) ────────────────────────────
+// Coarse scope gates ask the DB-resolved capability matrix, not a rank. The
+// fine-grained per-task rules (creator / assignee / manager-of-assignee) are
+// still enforced in tasks-service against the specific rows — those are
+// relationship questions, which no capability can answer.
 //
-// ── Task product rank scale (P1.3) ──────────────────────────────────────────
-// Owned by @task/authz; comparable only WITHIN Tasks. Mirrors task.roles.rank in
-// db_scripts/17_init-per-product-roles.sql:
-//   task_member 20 · task_lead 40 · task_admin 80
-// `rank` below is the Task PRODUCT rank (from task.member_roles), resolved per
-// request by tasks-service.
+// The actor is anything carrying a resolved capability list: a service's
+// `request.auth` or a `SessionUser` from /auth/me. Both come from the same
+// matrix, so the Team tab and the call behind it cannot disagree.
+import { can, CAPABILITY, ANCHOR_RANK, DEFAULT_ROLE_RANK, type CapabilityHolder } from '@platform/rbac';
+
+/** Retained for SENIORITY questions (manager-of, assignment ceilings) only. */
 export const TASK_RANKS = {
-  MEMBER: 20,
-  LEAD: 40,
-  ADMIN: 80,
+  MEMBER: DEFAULT_ROLE_RANK.SALES_REPRESENTATIVE,
+  LEAD:   DEFAULT_ROLE_RANK.SENIOR_SALES_EXECUTIVE,
+  ADMIN:  ANCHOR_RANK.ORG_ADMIN,
 } as const;
 
-/** May request the team/subtree task scope (?scope=team): task_lead+ (rank ≥ 40). */
-export function canViewTeamTasks(rank: number): boolean {
-  return rank >= TASK_RANKS.LEAD;
+/** May request the team/subtree task scope (?scope=team). */
+export function canViewTeamTasks(actor: CapabilityHolder): boolean {
+  return can(actor, CAPABILITY.TASKS_TEAM_VIEW);
 }
 
-/** May request the whole-org task scope (?scope=org): task_admin (rank ≥ 80). */
-export function canViewOrgTasks(rank: number): boolean {
-  return rank >= TASK_RANKS.ADMIN;
+/** May request the whole-org task scope (?scope=org). */
+export function canViewOrgTasks(actor: CapabilityHolder): boolean {
+  return can(actor, CAPABILITY.TASKS_ADMIN);
 }
 
 /**
  * May administer any in-org task or task list regardless of ownership —
- * PATCH/DELETE another user's task, delete any list: task_admin (rank ≥ 80).
+ * PATCH/DELETE another user's task, delete any list.
  */
-export function canAdministerTasks(rank: number): boolean {
-  return rank >= TASK_RANKS.ADMIN;
+export function canAdministerTasks(actor: CapabilityHolder): boolean {
+  return can(actor, CAPABILITY.TASKS_ADMIN);
+}
+
+/** May assign or reassign a task to someone else. */
+export function canAssignTasks(actor: CapabilityHolder): boolean {
+  return can(actor, CAPABILITY.TASKS_ASSIGN);
 }

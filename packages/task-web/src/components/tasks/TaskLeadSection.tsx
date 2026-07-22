@@ -26,7 +26,7 @@ export default function TaskLeadSection({ leadId, actor }: Props) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const scope = canViewTeamTasks(actor.rank) ? 'team' : 'own';
+  const scope = canViewTeamTasks(actor) ? 'team' : 'own';
 
   const load = useCallback(() => {
     tasksApi

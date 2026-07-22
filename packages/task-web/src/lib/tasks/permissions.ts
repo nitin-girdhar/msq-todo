@@ -1,11 +1,10 @@
-import type { SessionUser } from '@platform/types';
-
-// Task assignment is hidden for the two lowest CRM tiers: read_only and
-// sales_representative may not assign or reassign tasks (they can still work
-// tasks assigned to them). Everyone at senior_sales_executive and above may
-// assign — see getAssignableUsers' 'collaboration' scope for who they can pick.
-const NON_ASSIGNERS: ReadonlyArray<SessionUser['role']> = ['read_only', 'sales_representative'];
-
-export function canAssignTasks(actor: Pick<SessionUser, 'role'>): boolean {
-  return !NON_ASSIGNERS.includes(actor.role);
-}
+// Tier C3: who may assign is the tasks.assign grant in iam.role_capabilities,
+// not a hard-coded list of role names. The shipped default reproduces the old
+// behaviour exactly — read_only and sales_representative do not hold the key, so
+// they never see the control — but a tenant can now change that without a
+// deploy. Re-exported from @task/authz so the UI and tasks-service ask the same
+// question of the same data.
+//
+// Who an assigner may PICK is a separate, hierarchy question — see
+// getAssignableUsers' 'collaboration' scope.
+export { canAssignTasks } from '@task/authz';

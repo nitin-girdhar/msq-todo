@@ -11,6 +11,6 @@ export default async function TasksTeamPage() {
   if (!result) redirect(buildLoginUrl());
   // Same rank gating the CRM UI uses — under-privileged users are sent to the
   // tasks dashboard rather than shown a 404 (matches app/leave/approvals).
-  if (!canViewTeamTasks(result.session.rank)) redirect('/tasks');
+  if (!canViewTeamTasks(result.session)) redirect('/tasks');
   return <TeamTasksShell actor={result.session} />;
 }

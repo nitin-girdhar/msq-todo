@@ -36,15 +36,15 @@ async function canViewTask(ctx: TaskCtx, row: TaskRow): Promise<boolean> {
 
   if (row.list_visibility === 'team') {
     if (row.list_owner_id === me) return true;
-    if (canAdministerTasks(ctx.rank)) return true;
+    if (canAdministerTasks(ctx)) return true;
     if (await repo.isManagerOf(ctx, row.list_owner_id!, me)) return true;
   }
 
   // Standalone (no list) or team-without-list-authority: managers of the
   // creator/assignee and org admins may see non-private tasks.
-  if (canAdministerTasks(ctx.rank)) return true;
+  if (canAdministerTasks(ctx)) return true;
   if (
-    canViewTeamTasks(ctx.rank) &&
+    canViewTeamTasks(ctx) &&
     ((await repo.isManagerOf(ctx, me, row.created_by)) || (await repo.isManagerOf(ctx, me, row.assignee_id)))
   ) {
     return true;
@@ -54,10 +54,10 @@ async function canViewTask(ctx: TaskCtx, row: TaskRow): Promise<boolean> {
 
 function canEditTask(ctx: TaskCtx, row: TaskRow): Promise<boolean> | boolean {
   const me = ctx.user_id;
-  if (canAdministerTasks(ctx.rank)) return true; // rank ≥ 80
+  if (canAdministerTasks(ctx)) return true; // rank ≥ 80
   if (row.created_by === me || row.assignee_id === me) return true;
   // rank ≥ 60 over the assignee.
-  if (canViewTeamTasks(ctx.rank)) return repo.isManagerOf(ctx, me, row.assignee_id);
+  if (canViewTeamTasks(ctx)) return repo.isManagerOf(ctx, me, row.assignee_id);
   return false;
 }
 
@@ -70,10 +70,10 @@ async function loadVisible(ctx: TaskCtx, id: string): Promise<TaskRow> {
 
 // ── Reads ──────────────────────────────────────────────────────────────────
 export async function listTasks(ctx: TaskCtx, filters: ListTasksInput) {
-  if (filters.scope === 'team' && !canViewTeamTasks(ctx.rank)) {
+  if (filters.scope === 'team' && !canViewTeamTasks(ctx)) {
     throw new ForbiddenError('Insufficient rank for the team task scope');
   }
-  if (filters.scope === 'org' && !canViewOrgTasks(ctx.rank)) {
+  if (filters.scope === 'org' && !canViewOrgTasks(ctx)) {
     throw new ForbiddenError('Insufficient rank for the org task scope');
   }
   return repo.listTasks(ctx, filters);
@@ -140,7 +140,7 @@ export async function deleteTask(ctx: TaskCtx, id: string) {
   const row = await repo.getTaskRow(ctx, id);
   if (!row) throw new NotFoundError('Task not found');
   // Creator or org admin (rank ≥ 80).
-  if (row.created_by !== ctx.user_id && !canAdministerTasks(ctx.rank)) {
+  if (row.created_by !== ctx.user_id && !canAdministerTasks(ctx)) {
     throw new ForbiddenError('Only the creator or an org admin can delete this task');
   }
   await repo.softDeleteTask(ctx, id);

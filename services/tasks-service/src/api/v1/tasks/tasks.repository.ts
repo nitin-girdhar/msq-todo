@@ -22,7 +22,9 @@ import { withRoleTx, withServiceTx, type RoleTxContext, type DrizzleTx } from '@
 import { BadRequestError, NotFoundError } from '../../../lib/errors.js';
 import type { CreateTaskInput, UpdateTaskInput, ListTasksInput, ListMineTasksInput } from '@task/validation';
 
-export type TaskCtx = RoleTxContext & { rank: number };
+// `capabilities` (Tier C3) rides along so the service-layer scope gates can ask
+// the DB-resolved matrix instead of comparing ranks.
+export type TaskCtx = RoleTxContext & { rank: number; capabilities: string[] };
 type Row = Record<string, unknown>;
 
 // ── Small lookups (global, no RLS) ──────────────────────────────────────────

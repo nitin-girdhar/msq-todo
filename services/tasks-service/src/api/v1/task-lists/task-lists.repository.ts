@@ -17,7 +17,9 @@ import { sql } from 'drizzle-orm';
 import { withRoleTx, withServiceTx, type RoleTxContext, type DrizzleTx } from '@platform/db';
 import type { CreateTaskListInput, UpdateTaskListInput, ListTaskListsInput } from '@task/validation';
 
-export type TaskCtx = RoleTxContext & { rank: number };
+// `capabilities` (Tier C3) rides along so the service-layer scope gates can ask
+// the DB-resolved matrix instead of comparing ranks.
+export type TaskCtx = RoleTxContext & { rank: number; capabilities: string[] };
 type Row = Record<string, unknown>;
 
 const SELECT = sql`
