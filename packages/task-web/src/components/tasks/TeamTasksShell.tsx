@@ -7,6 +7,7 @@ import { tasks as tasksApi, taskLists as taskListsApi } from '../../lib/api/clie
 import type { TaskListView, TaskPriorityName, TaskStatusName, TaskView } from '../../lib/tasks/types';
 import { TASK_STATUS_OPTIONS, TASK_PRIORITY_OPTIONS, formatDueDate, isOverdue } from '../../lib/tasks/format';
 import { useAssignableUsers } from '../../hooks/useAssignableUsers';
+import { canAssignTasks } from '../../lib/tasks/permissions';
 import TasksTabs from './TasksTabs';
 import TaskStatusChip from './TaskStatusChip';
 import TaskPriorityBadge from './TaskPriorityBadge';
@@ -138,6 +139,7 @@ export default function TeamTasksShell({ actor }: Props) {
         task={selectedTask}
         lists={lists}
         assignableUsers={assignableUsers}
+        canAssign={canAssignTasks(actor)}
         onClose={() => setSelectedTask(null)}
         onSaved={() => { loadTasks(); setSelectedTask(null); }}
       />

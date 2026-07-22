@@ -6,6 +6,7 @@ import { Alert, PageBody, PageHeader } from '@platform/ui-kit';
 import { tasks as tasksApi, taskLists as taskListsApi } from '../../lib/api/client';
 import type { TaskListView, TaskPriorityName, TaskStatusName, TaskView } from '../../lib/tasks/types';
 import { useAssignableUsers } from '../../hooks/useAssignableUsers';
+import { canAssignTasks } from '../../lib/tasks/permissions';
 import TasksTabs from './TasksTabs';
 import TaskListSidebar from './TaskListSidebar';
 import TaskFilterChips from './TaskFilterChips';
@@ -128,6 +129,7 @@ export default function TasksShell({ actor }: Props) {
         task={selectedTask}
         lists={lists}
         assignableUsers={assignableUsers}
+        canAssign={canAssignTasks(actor)}
         onClose={() => setSelectedTask(null)}
         onSaved={() => { loadTasks(); setSelectedTask(null); }}
       />

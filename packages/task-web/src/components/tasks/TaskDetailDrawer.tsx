@@ -12,11 +12,14 @@ interface Props {
   task: TaskView | null;
   lists: TaskListView[];
   assignableUsers: SessionUser[];
+  // When false the assignee picker is hidden (read_only / sales_representative
+  // may not assign tasks) and the current assignee is shown read-only.
+  canAssign?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export default function TaskDetailDrawer({ task, lists, assignableUsers, onClose, onSaved }: Props) {
+export default function TaskDetailDrawer({ task, lists, assignableUsers, canAssign = true, onClose, onSaved }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
@@ -66,7 +69,12 @@ export default function TaskDetailDrawer({ task, lists, assignableUsers, onClose
         title: title.trim(),
         description: description.trim() || null,
         assignee_id: assigneeId || null,
-        due_at: dueAt ? new Date(`${dueAt}T00:00:00`).toISOString() : null,
+        // A due date is a calendar day, not an instant. Anchor it to UTC
+        // midnight so it round-trips symmetrically with the `.slice(0, 10)`
+        // read below — the previous `T00:00:00` (no zone) parsed as LOCAL
+        // midnight and shifted to the prior UTC day for any UTC+ timezone
+        // (e.g. IST), storing/displaying the date one day early.
+        due_at: dueAt ? new Date(`${dueAt}T00:00:00Z`).toISOString() : null,
         priority_name: priority ?? undefined,
         status_name: status,
         list_id: listId || null,
@@ -140,7 +148,13 @@ export default function TaskDetailDrawer({ task, lists, assignableUsers, onClose
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-semibold text-[#475569]">Assignee</label>
-              <UserPicker value={assigneeId} onChange={setAssigneeId} users={assignableUsers} allowEmpty emptyLabel="Unassigned" />
+              {canAssign ? (
+                <UserPicker value={assigneeId} onChange={setAssigneeId} users={assignableUsers} allowEmpty emptyLabel="Unassigned" />
+              ) : (
+                <div className="rounded-md border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-sm text-[#475569]">
+                  {assignableUsers.find((u) => u.id === assigneeId)?.name ?? task?.assignee_name ?? 'Unassigned'}
+                </div>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-[#475569]">Due date</label>
