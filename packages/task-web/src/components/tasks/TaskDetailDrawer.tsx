@@ -79,6 +79,10 @@ export default function TaskDetailDrawer({ task, lists, assignableUsers, canAssi
         status_name: status,
         list_id: listId || null,
         tags: tagsInput.split(',').map((t) => t.trim()).filter(Boolean),
+        // The version this drawer was opened against. A mismatch comes back as
+        // 409 and is shown below, instead of quietly overwriting an edit made
+        // by someone else while this drawer was open.
+        expected_updated_at: new Date(task.updated_at).toISOString(),
       });
       onSaved();
     } catch (err) {

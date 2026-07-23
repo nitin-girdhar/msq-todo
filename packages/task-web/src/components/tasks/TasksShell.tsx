@@ -75,10 +75,16 @@ export default function TasksShell({ actor }: Props) {
   const handleStatusChange = async (task: TaskView, status: string) => {
     setError(null);
     try {
-      await tasksApi.update(task.id, { status_name: status as TaskStatusName });
+      await tasksApi.update(task.id, {
+        status_name: status as TaskStatusName,
+        expected_updated_at: new Date(task.updated_at).toISOString(),
+      });
       loadTasks();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update task.');
+      // A 409 means the row we listed is stale — pull the current one so the
+      // board stops showing the version the user just failed to write over.
+      loadTasks();
     }
   };
 

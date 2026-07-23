@@ -73,6 +73,12 @@ export const updateTaskSchema = z
     recurrence_rule:     z.string().max(1000).nullable().optional(),
     // Optional note recorded on a status transition (task.task_status_log).
     note:                z.string().max(2000).trim().nullable().optional(),
+    // Optimistic concurrency token: the updated_at the client last read. When
+    // present the UPDATE is guarded on it and a mismatch is a 409, so two people
+    // editing the same task no longer silently overwrite each other. Optional so
+    // server-to-server callers that legitimately want last-writer-wins are
+    // unaffected; the UI always sends it.
+    expected_updated_at: z.string().datetime({ offset: true }).optional(),
   })
   .refine(
     (data) =>

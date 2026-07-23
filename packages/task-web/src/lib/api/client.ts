@@ -80,6 +80,9 @@ export interface UpdateTaskBody {
   status_name?: TaskStatusName | undefined;
   tags?: string[] | undefined;
   note?: string | null | undefined;
+  // Optimistic concurrency token — the updated_at the caller last read. The
+  // server guards the UPDATE on it and returns 409 if the task moved on.
+  expected_updated_at?: string | undefined;
 }
 
 export const tasks = {

@@ -19,7 +19,7 @@
 
 import { sql } from 'drizzle-orm';
 import { withRoleTx, withServiceTx, type RoleTxContext, type DrizzleTx } from '@platform/db';
-import { BadRequestError, NotFoundError } from '../../../lib/errors.js';
+import { BadRequestError, ConflictError, NotFoundError } from '../../../lib/errors.js';
 import type { CreateTaskInput, UpdateTaskInput, ListTasksInput, ListMineTasksInput } from '@task/validation';
 
 // `capabilities` (Tier C3) rides along so the service-layer scope gates can ask
@@ -271,12 +271,32 @@ export async function updateTask(ctx: TaskCtx, id: string, data: UpdateTaskInput
   if (data.assignee_id) await assertAssigneeActive(ctx, data.assignee_id);
   return withRoleTx(ctx, async (tx) => {
     // Load current row (RLS-scoped to org).
+    //
+    // FOR UPDATE is what makes the concurrency check below sound: without the
+    // lock two racing transactions both read the same updated_at, both pass the
+    // check, and both write — the lost update we are trying to prevent. With it
+    // the second transaction blocks, then re-reads the winner's committed row
+    // and sees the version it expected is gone.
     const currentRows = (await tx.execute(sql`
-      SELECT id::text, assignee_id::text FROM task.tasks
+      SELECT id::text, assignee_id::text, updated_at FROM task.tasks
       WHERE id = ${id} AND org_id = ${ctx.org_id} AND NOT is_deleted
-    `)) as unknown as Array<{ id: string; assignee_id: string | null }>;
+      FOR UPDATE
+    `)) as unknown as Array<{ id: string; assignee_id: string | null; updated_at: Date | string }>;
     const current = currentRows[0];
     if (!current) throw new NotFoundError('Task not found');
+
+    // Optimistic concurrency. Checked against the row we just read inside this
+    // transaction, so a writer that committed between the client's read and
+    // this UPDATE is caught instead of being silently overwritten.
+    if (data.expected_updated_at) {
+      const expected = new Date(data.expected_updated_at).getTime();
+      const actual = new Date(current.updated_at).getTime();
+      if (expected !== actual) {
+        throw new ConflictError(
+          'This task was changed by someone else while you were editing it. Your changes were not saved — reload to see the current values, then re-apply them.',
+        );
+      }
+    }
 
     const sets: ReturnType<typeof sql>[] = [];
     if (data.title !== undefined) sets.push(sql`title = ${data.title}`);
