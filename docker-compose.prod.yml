@@ -1,0 +1,23 @@
+name: msq
+
+# Production overlay for the Todo product repo. Apply ON TOP of docker-compose.yml:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# See msq-lms/docker-compose.prod.yml for the full rationale on NODE_ENV — in
+# short, without it pino runs at debug through pino-pretty and every
+# `if (nodeEnv === 'production')` guard in the codebase silently does nothing,
+# including @platform/auth-constants' placeholder/length gate on
+# INTERNAL_SERVICE_SECRET.
+
+services:
+  tasks-service:
+    environment:
+      NODE_ENV: production
+
+  todo-web:
+    environment:
+      NODE_ENV: production
+    # Behind Caddy in production — see the LMS overlay for why `!override` is
+    # required rather than a plain empty list.
+    ports: !override []

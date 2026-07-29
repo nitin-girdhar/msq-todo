@@ -14,18 +14,18 @@
     "dev:local": "tsx watch --env-file .env src/server.ts"
   },
   "dependencies": {
-    "@platform/authz": "workspace:*",
-    "@task/authz": "workspace:*",
     "@platform/audit-log": "workspace:*",
+    "@platform/authz": "workspace:*",
     "@platform/db": "workspace:*",
+    "@platform/rbac": "workspace:*",
     "@platform/service-auth": "workspace:*",
     "@platform/types": "workspace:*",
+    "@task/authz": "workspace:*",
     "@task/validation": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.2.1",
     "pino": "^9.6.0",
-    "zod": "^3.22.0",
-    "@platform/rbac": "workspace:*"
+    "zod": "^3.22.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.10",
