@@ -51,8 +51,28 @@ export default function CreateListModal({ open, onClose, onCreated }: Props) {
     }
   };
 
+  const footer = (
+    <div className="flex justify-end gap-2">
+      <button
+        type="button"
+        onClick={handleClose}
+        className="rounded-lg border border-[#E2E8F0] px-4 py-2 text-sm font-semibold text-[#475569] hover:bg-[#F8FAFC]"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        onClick={() => void submit()}
+        disabled={saving || !name.trim()}
+        className="rounded-lg bg-[#0b6cbf] px-4 py-2 text-sm font-semibold text-white hover:bg-[#095699] disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {saving ? 'Creating…' : 'Create list'}
+      </button>
+    </div>
+  );
+
   return (
-    <Modal open={open} onClose={handleClose} title="New list" locked={saving}>
+    <Modal open={open} onClose={handleClose} title="New list" locked={saving} footer={footer}>
       <div className="space-y-4">
         <div>
           <label className="mb-1 block text-xs font-semibold text-[#475569]">Name</label>
@@ -103,24 +123,6 @@ export default function CreateListModal({ open, onClose, onCreated }: Props) {
         </div>
 
         {error && <p className="text-xs text-red-600">{error}</p>}
-
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={handleClose}
-            className="rounded-lg border border-[#E2E8F0] px-4 py-2 text-sm font-semibold text-[#475569] hover:bg-[#F8FAFC]"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => void submit()}
-            disabled={saving || !name.trim()}
-            className="rounded-lg bg-[#0b6cbf] px-4 py-2 text-sm font-semibold text-white hover:bg-[#095699] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {saving ? 'Creating…' : 'Create list'}
-          </button>
-        </div>
       </div>
     </Modal>
   );
