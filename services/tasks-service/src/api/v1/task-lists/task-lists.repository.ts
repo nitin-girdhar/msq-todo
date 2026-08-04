@@ -31,19 +31,10 @@ const FROM = sql`
   JOIN iam.users uo ON uo.id = tl.owner_id
 `;
 
-// True when `memberId` sits under `managerId` in the org's management subtree.
-export async function isManagerOf(ctx: TaskCtx, managerId: string, memberId: string | null): Promise<boolean> {
-  if (!memberId) return false;
-  if (managerId === memberId) return false;
-  return withServiceTx(async (tx) => {
-    const rows = (await tx.execute(sql`
-      SELECT 1 FROM iam.vw_user_team_members
-      WHERE manager_id = ${managerId} AND member_id = ${memberId} AND org_id = ${ctx.org_id}
-      LIMIT 1
-    `)) as unknown as Row[];
-    return rows.length > 0;
-  });
-}
+// Re-exported from the tasks repository rather than duplicated: there was one
+// copy of this here and one there, and two copies of an authority check is two
+// chances to answer the question differently.
+export { isManagerOf } from '../tasks/tasks.repository.js';
 
 export async function listTaskLists(ctx: TaskCtx, filters: ListTaskListsInput) {
   const { page, limit, scope } = filters;

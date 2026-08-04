@@ -218,13 +218,17 @@ export async function getTaskView(ctx: TaskCtx, id: string): Promise<Row | null>
   });
 }
 
-export async function isManagerOf(ctx: TaskCtx, managerId: string, memberId: string | null): Promise<boolean> {
+// True when `memberId` sits anywhere under `managerId` in the platform
+// hierarchy. Delegates to iam.fn_is_in_subtree — the same primitive LMS lead
+// assignment and HR leave approval use, so "my team" means one thing across all
+// three products. ctx is kept in the signature for call-site symmetry; the
+// hierarchy is org-scoped by construction (a reporting line requires both
+// parties to be members of its org), so no org filter is needed here.
+export async function isManagerOf(_ctx: TaskCtx, managerId: string, memberId: string | null): Promise<boolean> {
   if (!memberId || managerId === memberId) return false;
   return withServiceTx(async (tx) => {
     const rows = (await tx.execute(sql`
-      SELECT 1 FROM iam.vw_user_team_members
-      WHERE manager_id = ${managerId} AND member_id = ${memberId} AND org_id = ${ctx.org_id}
-      LIMIT 1
+      SELECT 1 WHERE iam.fn_is_in_subtree(${managerId}::uuid, ${memberId}::uuid)
     `)) as unknown as Row[];
     return rows.length > 0;
   });
