@@ -13,7 +13,7 @@ export function useAssignableUsers(): SessionUser[] {
       try {
         // Tasks assignment is collaborative: peers at the same rank and the
         // actor themselves are valid assignees, unlike CRM lead delegation.
-        const json = await usersApi.assignable({ scope: 'collaboration' });
+        const json = await usersApi.assignable({ product: 'tasks', scope: 'collaboration' });
         if (cancelled) return;
         const raw = Array.isArray(json.data) ? (json.data as Record<string, unknown>[]) : [];
         setCandidates(
