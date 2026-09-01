@@ -59,6 +59,18 @@ export default function TaskDetailDrawer({ task, lists, assignableUsers, canAssi
     onClose();
   }, [onClose]);
 
+  // Escape closes the drawer (unless a save is in flight). Clicking the dimmed
+  // backdrop does NOT close it — this is an edit form and a stray click outside
+  // must not discard unsaved changes; use the X button or Escape.
+  useEffect(() => {
+    if (!task) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !saving) handleClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [task, saving, handleClose]);
+
   if (!task) return null;
 
   const save = async () => {
@@ -109,11 +121,8 @@ export default function TaskDetailDrawer({ task, lists, assignableUsers, canAssi
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50" onClick={handleClose} role="dialog" aria-modal="true" aria-label="Task detail">
-      <div
-        className="flex h-full w-full max-w-lg flex-col overflow-y-auto bg-white p-5 shadow-2xl sm:p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50" role="dialog" aria-modal="true" aria-label="Task detail">
+      <div className="flex h-full w-full max-w-lg flex-col overflow-y-auto bg-white p-5 shadow-2xl sm:p-6">
         <div className="mb-5 flex items-start justify-between gap-3">
           <h2 className="text-base font-semibold text-[#0F172A]">Task detail</h2>
           <button
