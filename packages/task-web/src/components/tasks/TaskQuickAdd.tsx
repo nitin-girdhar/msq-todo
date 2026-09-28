@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { SpeechInputButton, appendDictation } from '@platform/ui-kit';
 
 interface Props {
   onCreate: (title: string) => Promise<void>;
@@ -38,6 +39,7 @@ export default function TaskQuickAdd({ onCreate }: Props) {
         placeholder="Quick-add a task and press Enter…"
         className="w-full border-none bg-transparent text-sm text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none"
       />
+      <SpeechInputButton onText={(t) => setValue((p) => appendDictation(p, t))} disabled={busy} compact />
     </div>
   );
 }

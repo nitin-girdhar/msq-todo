@@ -5,7 +5,7 @@ import type { SessionUser } from '@platform/types';
 import { tasks as tasksApi } from '../../lib/api/client';
 import type { TaskCommentView, TaskListView, TaskStatusHistoryView, TaskView } from '../../lib/tasks/types';
 import { TASK_PRIORITY_OPTIONS, TASK_STATUS_OPTIONS, formatDateTime } from '../../lib/tasks/format';
-import { UserPicker } from '@platform/ui-kit';
+import { UserPicker, SpeechInputButton, appendDictation } from '@platform/ui-kit';
 import TaskStatusChip from './TaskStatusChip';
 
 interface Props {
@@ -149,7 +149,10 @@ export default function TaskDetailDrawer({ task, lists, assignableUsers, canAssi
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-semibold text-[#475569]">Description</label>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <label className="block text-xs font-semibold text-[#475569]">Description</label>
+              <SpeechInputButton onText={(t) => setDescription((p) => appendDictation(p, t))} disabled={saving} />
+            </div>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -278,7 +281,7 @@ export default function TaskDetailDrawer({ task, lists, assignableUsers, canAssi
             ))}
             {comments.length === 0 && <p className="text-xs text-[#94A3B8]">No comments yet.</p>}
           </ul>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <input
               type="text"
               value={commentBody}
@@ -287,6 +290,7 @@ export default function TaskDetailDrawer({ task, lists, assignableUsers, canAssi
               placeholder="Add a comment…"
               className="w-full rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] focus:border-[#0b6cbf] focus:outline-none focus:ring-2 focus:ring-[#0b6cbf]/20"
             />
+            <SpeechInputButton onText={(t) => setCommentBody((p) => appendDictation(p, t))} disabled={commentBusy} compact />
             <button
               type="button"
               onClick={() => void addComment()}

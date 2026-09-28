@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { SpeechInputButton, appendDictation } from '@platform/ui-kit';
 import type { SessionUser } from '@platform/types';
 import { canViewTeamTasks } from '@task/authz';
 import { tasks as tasksApi } from '../../lib/api/client';
@@ -76,7 +77,7 @@ export default function TaskLeadSection({ leadId, actor }: Props) {
       </div>
 
       {showCreate && (
-        <div className="mb-3 flex gap-2">
+        <div className="mb-3 flex items-center gap-2">
           <input
             type="text"
             value={title}
@@ -85,6 +86,7 @@ export default function TaskLeadSection({ leadId, actor }: Props) {
             placeholder="New task about this lead…"
             className="w-full rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] focus:border-[#0b6cbf] focus:outline-none focus:ring-2 focus:ring-[#0b6cbf]/20"
           />
+          <SpeechInputButton onText={(t) => setTitle((p) => appendDictation(p, t))} disabled={creating} compact />
           <button
             type="button"
             onClick={() => void createTask()}
