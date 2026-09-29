@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Modal } from '@platform/ui-kit';
+import { Modal, SpeechInputButton, appendDictation } from '@platform/ui-kit';
 import { taskLists as taskListsApi } from '../../lib/api/client';
 import { TASK_VISIBILITY_OPTIONS } from '../../lib/tasks/format';
 import type { TaskVisibility } from '../../lib/tasks/types';
@@ -86,7 +86,10 @@ export default function CreateListModal({ open, onClose, onCreated }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-semibold text-[#475569]">Description (optional)</label>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <label className="block text-xs font-semibold text-[#475569]">Description (optional)</label>
+            <SpeechInputButton onText={(t) => setDescription((p) => appendDictation(p, t))} disabled={saving} />
+          </div>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}

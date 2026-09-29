@@ -6,5 +6,5 @@ import type { NavItem } from '@platform/ui-kit/shell';
 //
 // Tier C3: previously `roles: ROLES`, i.e. visible to everyone with the module.
 export const TASK_NAV: readonly NavItem[] = [
-  { id: 'tasks', label: 'Tasks', href: '/tasks', capability: CAPABILITY.TASKS },
+  { id: 'tasks', label: 'Tasks', href: '/tasks', icon: 'square-check-big', capability: CAPABILITY.TASKS },
 ] as const;

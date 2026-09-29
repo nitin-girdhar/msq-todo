@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { NotificationProvider, productOrigins, authOrigin, adminWebOrigin, usableProducts, landingFor } from '@platform/ui-kit';
+import { NotificationProvider, productOrigins, authOrigin, adminWebOrigin, adminOrigin, usableProducts, landingFor } from '@platform/ui-kit';
 import { AppNavbar, AppSidebar, MobileSidebar } from '@platform/ui-kit/shell';
 import { requireSession, getEnabledModules } from '@platform/ui-kit/server';
 import { TASK_NAV } from '@/src/config/navigation';
@@ -42,6 +42,7 @@ export default async function TaskModuleShell({ children }: Props) {
           homeHref="/tasks"
           title="Fitclass - Tasks"
           adminWebUrl={adminWebOrigin()}
+          lookupAdminUrl={adminOrigin()}
         />
         <MobileSidebar actor={session} items={TASK_NAV} />
         <div className="flex w-full flex-1 lg:min-h-0 lg:overflow-hidden">
