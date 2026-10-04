@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { NotificationProvider, productOrigins, authOrigin, adminWebOrigin, adminOrigin, usableProducts, landingFor } from '@platform/ui-kit';
-import { AppNavbar, AppSidebar, MobileSidebar } from '@platform/ui-kit/shell';
+import { AppShell } from '@platform/ui-kit/shell';
 import { requireSession, getEnabledModules } from '@platform/ui-kit/server';
 import { TASK_NAV } from '@/src/config/navigation';
 
@@ -33,25 +33,21 @@ export default async function TaskModuleShell({ children }: Props) {
 
   return (
     <NotificationProvider>
-      <div className="flex min-h-screen w-full flex-col bg-[#F8FAFC] lg:h-full lg:min-h-0 lg:overflow-hidden">
-        <AppNavbar
-          user={session}
-          licensedProducts={licensedProducts}
-          productOrigins={origins}
-          activeProduct="task"
-          homeHref="/tasks"
-          title="Fitclass - Tasks"
-          adminWebUrl={adminWebOrigin()}
-          lookupAdminUrl={adminOrigin()}
-        />
-        <MobileSidebar actor={session} items={TASK_NAV} />
-        <div className="flex w-full flex-1 lg:min-h-0 lg:overflow-hidden">
-          <AppSidebar actor={session} items={TASK_NAV} />
-          <main className="flex w-full min-w-0 flex-1 flex-col lg:overflow-y-auto">
-            {children}
-          </main>
-        </div>
-      </div>
+      <AppShell
+        nav={TASK_NAV}
+        productLine="Tasks"
+        productKey="task"
+        user={session}
+        licensedProducts={licensedProducts}
+        productOrigins={origins}
+        activeProduct="task"
+        homeHref="/tasks"
+        title="Fitclass - Tasks"
+        adminWebUrl={adminWebOrigin()}
+        lookupAdminUrl={adminOrigin()}
+      >
+        {children}
+      </AppShell>
     </NotificationProvider>
   );
 }
