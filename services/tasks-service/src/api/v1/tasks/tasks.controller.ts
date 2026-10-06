@@ -7,6 +7,9 @@ import type {
   UpdateTaskInput,
   ListTasksInput,
   ListMineTasksInput,
+  ExportTasksInput,
+  TaskStatsInput,
+  BulkUpdateTasksInput,
   CreateTaskCommentInput,
 } from '@task/validation';
 
@@ -28,6 +31,28 @@ export class TasksController {
   mine = async (request: FastifyRequest, reply: FastifyReply) => {
     const result = await service.listMine(ctxOf(request), request.query as ListMineTasksInput);
     return reply.send({ success: true, ...result });
+  };
+
+  stats = async (request: FastifyRequest, reply: FastifyReply) => {
+    const data = await service.getTaskStats(ctxOf(request), request.query as TaskStatsInput);
+    return reply.send({ success: true, data });
+  };
+
+  exportCsv = async (request: FastifyRequest, reply: FastifyReply) => {
+    const { csv, truncated } = await service.exportTasksCsv(ctxOf(request), request.query as ExportTasksInput);
+    const stamp = new Date().toISOString().slice(0, 10);
+    return reply
+      .header('Content-Type', 'text/csv; charset=utf-8')
+      .header('Content-Disposition', `attachment; filename="tasks-${stamp}.csv"`)
+      // Lets the client warn that the file was capped instead of presenting it as complete.
+      .header('X-Export-Truncated', truncated ? 'true' : 'false')
+      .header('Cache-Control', 'no-store')
+      .send(csv);
+  };
+
+  bulk = async (request: FastifyRequest, reply: FastifyReply) => {
+    const data = await service.bulkUpdateTasks(ctxOf(request), request.body as BulkUpdateTasksInput);
+    return reply.send({ success: true, data });
   };
 
   getById = async (request: FastifyRequest, reply: FastifyReply) => {

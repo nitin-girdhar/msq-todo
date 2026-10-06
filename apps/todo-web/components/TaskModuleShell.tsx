@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation';
 import { NotificationProvider, productOrigins, authOrigin, adminWebOrigin, adminOrigin, usableProducts, landingFor } from '@platform/ui-kit';
 import { AppShell } from '@platform/ui-kit/shell';
 import { requireSession, getEnabledModules } from '@platform/ui-kit/server';
-import { TASK_NAV } from '@/src/config/navigation';
+import { TaskNavBadges } from '@task/web';
+import { MOBILE_TABS, TASK_NAV } from '@/src/config/navigation';
 
 interface Props {
   children: React.ReactNode;
@@ -33,21 +34,25 @@ export default async function TaskModuleShell({ children }: Props) {
 
   return (
     <NotificationProvider>
-      <AppShell
-        nav={TASK_NAV}
-        productLine="Tasks"
-        productKey="task"
-        user={session}
-        licensedProducts={licensedProducts}
-        productOrigins={origins}
-        activeProduct="task"
-        homeHref="/tasks"
-        title="Fitclass - Tasks"
-        adminWebUrl={adminWebOrigin()}
-        lookupAdminUrl={adminOrigin()}
-      >
-        {children}
-      </AppShell>
+      <TaskNavBadges actor={session}>
+        <AppShell
+          nav={TASK_NAV}
+          mobileTabs={MOBILE_TABS}
+          productLine="Tasks"
+          productKey="task"
+          user={session}
+          licensedProducts={licensedProducts}
+          productOrigins={origins}
+          activeProduct="task"
+          homeHref="/tasks"
+          title="Tasks"
+          titleWithBrand
+          adminWebUrl={adminWebOrigin()}
+          lookupAdminUrl={adminOrigin()}
+        >
+          {children}
+        </AppShell>
+      </TaskNavBadges>
     </NotificationProvider>
   );
 }

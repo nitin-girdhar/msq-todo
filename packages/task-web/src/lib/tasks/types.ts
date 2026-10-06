@@ -8,6 +8,11 @@ export type TaskPriorityName = 'low' | 'medium' | 'high' | 'urgent';
 
 export type TaskVisibility = 'private' | 'team' | 'org';
 
+/** Derived server-side from due_at (task.vw_tasks_enriched.sla_state). */
+export type TaskSlaState = 'none' | 'ok' | 'due_soon' | 'overdue';
+
+export type TaskSortKey = 'created_at' | 'due_at' | 'priority' | 'status' | 'task_no' | 'title';
+
 export interface TaskView {
   id: string;
   org_id: string;
@@ -38,6 +43,27 @@ export interface TaskView {
   recurrence_rule: string | null;
   created_at: string;
   updated_at: string;
+  // schema 1.68.0
+  task_no: number;
+  org_name: string | null;
+  sla_state: TaskSlaState;
+}
+
+export interface TaskStats {
+  open: number;
+  todo: number;
+  in_progress: number;
+  blocked: number;
+  completed: number;
+  overdue: number;
+  due_soon: number;
+  unassigned: number;
+}
+
+export interface BulkUpdateResult {
+  results: Array<{ id: string; ok: boolean; error?: string }>;
+  updated: number;
+  failed: number;
 }
 
 export interface TaskListView {
@@ -51,6 +77,8 @@ export interface TaskListView {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  /** Tasks in the list that are not finished (task-lists API). */
+  open_task_count?: number;
 }
 
 export interface TaskCommentView {

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { ServiceWorkerRegistrar, pwaViewport, pwaAppleWebApp, pwaIcons, pwaAppleCapableMeta, pwaManifest } from '@platform/ui-kit';
-import { brandedMetadata, getEffectiveBranding } from '@platform/ui-kit/server';
+import { DEFAULT_BRAND, brandedMetadata, getEffectiveBranding } from '@platform/ui-kit/server';
 import { BrandingProvider } from '@platform/ui-kit/branding';
 import { ThemeStyle, themeHtmlProps } from '@platform/ui-kit/theme';
 import './globals.css';
@@ -8,8 +8,8 @@ import './globals.css';
 export const viewport = pwaViewport;
 
 const baseMetadata: Metadata = {
-  title: 'FitClass · Tasks',
-  description: 'Task management for FitClass teams',
+  title: `${DEFAULT_BRAND.name} · Tasks`,
+  description: `Task management for ${DEFAULT_BRAND.name} teams`,
   appleWebApp: pwaAppleWebApp,
   icons: pwaIcons,
   manifest: pwaManifest,
@@ -23,13 +23,13 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Tenant brand / user appearance → CSS variables (skills/react-typescript §6).
-  // Dark mode stays off for this app until every screen is on theme tokens.
+  // Every screen is on theme tokens (no hex / slate left), so the user's Light/Dark/System choice is honoured.
   const branding = await getEffectiveBranding();
   const theme = branding.theme;
   return (
-    <html lang="en" suppressHydrationWarning {...themeHtmlProps(theme)}>
+    <html lang="en" suppressHydrationWarning {...themeHtmlProps(theme, true)}>
       <head>
-        <ThemeStyle theme={theme} />
+        <ThemeStyle theme={theme} supportsDark />
       </head>
       <body className="dashboard-shell bg-background font-sans text-on-surface" suppressHydrationWarning>
         <ServiceWorkerRegistrar />

@@ -1,0 +1,31 @@
+meta {
+  name: Bulk Update Tasks
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/tasks/bulk
+  body: json
+  auth: none
+}
+
+headers {
+  Cookie: auth_token={{authToken}}
+}
+
+body:json {
+  {
+    "ids": ["{{taskId}}"],
+    "status_name": "in_progress",
+    "note": "Picked up in bulk"
+  }
+}
+
+docs {
+  Requires tasks.bulk AND tasks.edit (403 without either). 1-100 ids; provide assignee_id (uuid or null to
+  unassign) and/or status_name. Reassigning to anyone other than yourself also needs
+  tasks.assign. Each id is authorised like a single PATCH and runs in its own transaction:
+  the response is { results: [{ id, ok, error? }], updated, failed } and a task you may
+  not touch is reported as "not found or not allowed" without affecting the others.
+}

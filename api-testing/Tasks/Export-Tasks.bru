@@ -1,0 +1,24 @@
+meta {
+  name: Export Tasks (CSV)
+  type: http
+  seq: 18
+}
+
+get {
+  url: {{baseUrl}}/tasks/export?scope=own&include_completed=true&sort=due_at&dir=asc
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: auth_token={{authToken}}
+}
+
+docs {
+  Requires tasks.export (403 without it). Same filters as GET /tasks (no paging):
+  scope, assignee_id, unassigned, status, priority, sla_state, list_id, due_before,
+  due_after, q, include_completed, sort (created_at|due_at|priority|status|task_no|title), dir.
+  Returns text/csv with Content-Disposition. Capped at 5000 rows; the response header
+  X-Export-Truncated is "true" when the cap was hit. Cells starting with = + - @ are
+  prefixed with an apostrophe (CSV injection guard).
+}

@@ -34,3 +34,30 @@ Same gaps as msq-lms/msq-hrms (see their READMEs for full detail):
 make install   # run from msq-core's root, not from inside this repo alone
 make dev       # requires msq-core's `make dev-infra` + `make dev` already running
 ```
+
+## Screens and API (Stitch "ToDo" redesign, schema 1.68.0)
+
+The full write-up is in `docs/Architecture.md` → **Tasks (To-Do) — Stitch redesign**; the table/column
+reference is `docs/DB_model.md` (`task.tasks.task_no`, `task.task_counters`, `vw_tasks_enriched`).
+
+| Route | What it is |
+|---|---|
+| `/tasks` | My Tasks: KPI tiles, quick-add, filters, List / Board, bulk bar, Export CSV |
+| `/tasks/team` | Team tasks (`tasks.view.team`): same hub, `scope=team` |
+| `/tasks/[id]` | Full task page: breadcrumbs, sibling rail, notes + audit tabs |
+| `/tasks/lists` | Lists & Scopes (`tasks.lists.view`): who owns / can see each list |
+
+New endpoints: `GET /tasks/stats`, `GET /tasks/export` (`tasks.export`), `POST /tasks/bulk` (`tasks.bulk`);
+`GET /tasks` gained `unassigned`, `sla_state`, `sort`, `dir`. Bruno requests are under `api-testing/Tasks/`.
+
+Design notes worth knowing before changing this code:
+
+- A branch **is** an organization, so list visibility stays `private | team | org`; the UI labels `org` as
+  **Branch** (tenant brand term). There is no tenant-wide tier.
+- Due dates are stored as the **end of the chosen day** in the user's timezone (`dueDateToISO` /
+  `isoToDateInput` in `lib/tasks/format.ts`); SLA (`overdue` / `due_soon` / `ok`) is derived from `due_at`
+  in the view.
+- The table is a plain token-styled `<table>` (no AG Grid dependency): the data is server-paged and
+  server-sorted. Not built from the design: timeline, sprints, subtasks, recurrence, attachments, AI Polish.
+- Colours are theme tokens only — no hex, no `slate-*`. Dark mode is on (`supportsDark` in
+  `app/layout.tsx`), so the user's Light / Dark / System choice is honoured.

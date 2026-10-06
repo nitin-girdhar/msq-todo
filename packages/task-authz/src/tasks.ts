@@ -16,6 +16,11 @@ export const TASK_RANKS = {
   ADMIN:  ANCHOR_RANK.ORG_ADMIN,
 } as const;
 
+/** May read tasks at all (tasks.view). The scope — own / team / org — is separate. */
+export function canViewTasks(actor: CapabilityHolder): boolean {
+  return can(actor, CAPABILITY.TASKS_VIEW);
+}
+
 /** May request the team/subtree task scope (?scope=team). */
 export function canViewTeamTasks(actor: CapabilityHolder): boolean {
   return can(actor, CAPABILITY.TASKS_VIEW_TEAM);
@@ -37,4 +42,34 @@ export function canAdministerTasks(actor: CapabilityHolder): boolean {
 /** May assign or reassign a task to someone else. */
 export function canAssignTasks(actor: CapabilityHolder): boolean {
   return can(actor, CAPABILITY.TASKS_ASSIGN);
+}
+
+/** May delete tasks (tasks.delete). Whose tasks is still decided per task server-side. */
+export function canDeleteTasks(actor: CapabilityHolder): boolean {
+  return can(actor, CAPABILITY.TASKS_DELETE);
+}
+
+/** May reassign / change the status of many tasks at once (POST /tasks/bulk). */
+export function canBulkUpdateTasks(actor: CapabilityHolder): boolean {
+  return can(actor, CAPABILITY.TASKS_BULK);
+}
+
+/** May download the visible tasks as CSV (GET /tasks/export). */
+export function canExportTasks(actor: CapabilityHolder): boolean {
+  return can(actor, CAPABILITY.TASKS_EXPORT);
+}
+
+/** May open the Lists & Scopes page (tasks.lists.view). */
+export function canViewTaskLists(actor: CapabilityHolder): boolean {
+  return can(actor, CAPABILITY.TASKS_LISTS_VIEW);
+}
+
+/** May create or rename lists (tasks.lists.manage). */
+export function canManageTaskLists(actor: CapabilityHolder): boolean {
+  return can(actor, CAPABILITY.TASKS_LISTS_MANAGE);
+}
+
+/** May delete a list (tasks.lists.delete). */
+export function canDeleteTaskLists(actor: CapabilityHolder): boolean {
+  return can(actor, CAPABILITY.TASKS_LISTS_DELETE);
 }

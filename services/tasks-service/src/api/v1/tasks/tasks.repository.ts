@@ -19,8 +19,15 @@
 
 import { sql } from 'drizzle-orm';
 import { withRoleTx, withServiceTx, type RoleTxContext, type DrizzleTx } from '@platform/db';
-import { BadRequestError, ConflictError, NotFoundError } from '../../../lib/errors.js';
-import type { CreateTaskInput, UpdateTaskInput, ListTasksInput, ListMineTasksInput } from '@task/validation';
+import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../../lib/errors.js';
+import type {
+  CreateTaskInput,
+  UpdateTaskInput,
+  ListTasksInput,
+  ListMineTasksInput,
+  ExportTasksInput,
+  TaskStatsInput,
+} from '@task/validation';
 
 // `capabilities` (Tier C3) rides along so the service-layer scope gates can ask
 // the DB-resolved matrix instead of comparing ranks.
@@ -81,11 +88,13 @@ function tagsSql(tags: string[] | undefined): ReturnType<typeof sql> {
 }
 
 // ── Filter + scope SQL builders ─────────────────────────────────────────────
-function filterClause(f: ListTasksInput): ReturnType<typeof sql> {
+function filterClause(f: ExportTasksInput): ReturnType<typeof sql> {
   const clauses: ReturnType<typeof sql>[] = [];
-  if (f.assignee_id) clauses.push(sql`AND e.assignee_id = ${f.assignee_id}`);
+  if (f.unassigned) clauses.push(sql`AND e.assignee_id IS NULL`);
+  else if (f.assignee_id) clauses.push(sql`AND e.assignee_id = ${f.assignee_id}`);
   if (f.status) clauses.push(sql`AND e.status_name = ${f.status}`);
   if (f.priority) clauses.push(sql`AND e.priority_name = ${f.priority}`);
+  if (f.sla_state) clauses.push(sql`AND e.sla_state = ${f.sla_state}`);
   if (f.list_id) clauses.push(sql`AND e.list_id = ${f.list_id}`);
   if (f.due_before) clauses.push(sql`AND e.due_at <= ${f.due_before}`);
   if (f.due_after) clauses.push(sql`AND e.due_at >= ${f.due_after}`);
@@ -125,44 +134,108 @@ function scopeVisibilityClause(ctx: TaskCtx, scope: 'team' | 'org'): ReturnType<
   )`;
 }
 
+// Sort keys are a closed set (validated by Zod AND mapped here), so only these
+// fixed fragments ever reach the SQL text. `id` is the stable tie-breaker that
+// keeps page boundaries from shifting between requests.
+const SORT_COLUMN: Record<ExportTasksInput['sort'], ReturnType<typeof sql>> = {
+  created_at: sql`e.created_at`,
+  due_at:     sql`e.due_at`,
+  priority:   sql`e.priority_sort_order`,
+  status:     sql`e.status_label`,
+  task_no:    sql`e.task_no`,
+  title:      sql`lower(e.title)`,
+};
+
+function orderClause(f: ExportTasksInput): ReturnType<typeof sql> {
+  const dir = f.dir === 'asc' ? sql`ASC` : sql`DESC`;
+  // Empty due dates / priorities always sort last, whichever way the column runs.
+  return sql`ORDER BY ${SORT_COLUMN[f.sort]} ${dir} NULLS LAST, e.id`;
+}
+
+// One place that decides HOW a scope is read, so list / export / stats can never
+// disagree about which rows a caller may see:
+//   own       -> withRoleTx (RLS-scoped; the rows are the caller's own)
+//   team/org  -> withServiceTx after the service-layer capability check, ALWAYS
+//                fenced by the gateway-verified org_id plus the visibility clause.
+async function runScoped<T>(
+  ctx: TaskCtx,
+  scope: ExportTasksInput['scope'],
+  fn: (tx: DrizzleTx, scoped: ReturnType<typeof sql>) => Promise<T>,
+): Promise<T> {
+  if (scope === 'own') {
+    return withRoleTx(ctx, (tx) =>
+      fn(tx, sql`WHERE e.org_id = ${ctx.org_id} AND (e.created_by = ${ctx.user_id} OR e.assignee_id = ${ctx.user_id})`),
+    );
+  }
+  return withServiceTx((tx) =>
+    fn(tx, sql`WHERE e.org_id = ${ctx.org_id} ${scopeVisibilityClause(ctx, scope)}`),
+  );
+}
+
 // ── LIST ─────────────────────────────────────────────────────────────────────
 export async function listTasks(ctx: TaskCtx, filters: ListTasksInput) {
   const { page, limit, scope } = filters;
   const offset = (page - 1) * limit;
-  const filters_ = filterClause(filters);
-
-  if (scope === 'own') {
-    return withRoleTx(ctx, async (tx) => {
-      const where = sql`
-        WHERE e.org_id = ${ctx.org_id}
-          AND (e.created_by = ${ctx.user_id} OR e.assignee_id = ${ctx.user_id})
-          ${filters_}
-      `;
-      const rows = (await tx.execute(sql`
-        SELECT * FROM task.vw_tasks_enriched e ${where}
-        ORDER BY e.created_at DESC LIMIT ${limit} OFFSET ${offset}
-      `)) as unknown as Row[];
-      const countRows = (await tx.execute(sql`
-        SELECT COUNT(*)::int AS count FROM task.vw_tasks_enriched e ${where}
-      `)) as unknown as Array<{ count: number }>;
-      return { data: rows, total: countRows[0]?.count ?? 0, page, limit };
-    });
-  }
-
-  return withServiceTx(async (tx) => {
-    const where = sql`
-      WHERE e.org_id = ${ctx.org_id}
-        ${scopeVisibilityClause(ctx, scope)}
-        ${filters_}
-    `;
+  return runScoped(ctx, scope, async (tx, scoped) => {
+    const where = sql`${scoped} ${filterClause(filters)}`;
     const rows = (await tx.execute(sql`
       SELECT * FROM task.vw_tasks_enriched e ${where}
-      ORDER BY e.created_at DESC LIMIT ${limit} OFFSET ${offset}
+      ${orderClause(filters)} LIMIT ${limit} OFFSET ${offset}
     `)) as unknown as Row[];
     const countRows = (await tx.execute(sql`
       SELECT COUNT(*)::int AS count FROM task.vw_tasks_enriched e ${where}
     `)) as unknown as Array<{ count: number }>;
     return { data: rows, total: countRows[0]?.count ?? 0, page, limit };
+  });
+}
+
+// CSV export reads the same rows as the grid, capped so one request cannot pull
+// an unbounded table. `truncated` lets the caller say so instead of silently
+// handing over a partial file.
+export const EXPORT_ROW_CAP = 5000;
+
+export async function listTasksForExport(ctx: TaskCtx, filters: ExportTasksInput) {
+  return runScoped(ctx, filters.scope, async (tx, scoped) => {
+    const rows = (await tx.execute(sql`
+      SELECT e.task_no, e.title, e.description, e.list_name, e.status_label, e.priority_label,
+             e.sla_state, e.due_at, e.assignee_name, e.created_by_name, e.tags,
+             e.created_at, e.completed_at
+      FROM task.vw_tasks_enriched e ${scoped} ${filterClause(filters)}
+      ${orderClause(filters)} LIMIT ${EXPORT_ROW_CAP + 1}
+    `)) as unknown as Row[];
+    const truncated = rows.length > EXPORT_ROW_CAP;
+    return { rows: truncated ? rows.slice(0, EXPORT_ROW_CAP) : rows, truncated };
+  });
+}
+
+// ── STATS (KPI tiles) ────────────────────────────────────────────────────────
+export interface TaskStats {
+  open: number;
+  todo: number;
+  in_progress: number;
+  blocked: number;
+  completed: number;
+  overdue: number;
+  due_soon: number;
+  unassigned: number;
+}
+
+export async function getTaskStats(ctx: TaskCtx, input: TaskStatsInput): Promise<TaskStats> {
+  return runScoped(ctx, input.scope, async (tx, scoped) => {
+    const listFilter = input.list_id ? sql`AND e.list_id = ${input.list_id}` : sql``;
+    const rows = (await tx.execute(sql`
+      SELECT
+        COUNT(*) FILTER (WHERE NOT e.status_is_terminal)::int                         AS open,
+        COUNT(*) FILTER (WHERE e.status_name = 'todo')::int                           AS todo,
+        COUNT(*) FILTER (WHERE e.status_name = 'in_progress')::int                    AS in_progress,
+        COUNT(*) FILTER (WHERE e.status_name = 'blocked')::int                        AS blocked,
+        COUNT(*) FILTER (WHERE e.status_name = 'done')::int                           AS completed,
+        COUNT(*) FILTER (WHERE e.sla_state = 'overdue')::int                          AS overdue,
+        COUNT(*) FILTER (WHERE e.sla_state = 'due_soon')::int                         AS due_soon,
+        COUNT(*) FILTER (WHERE NOT e.status_is_terminal AND e.assignee_id IS NULL)::int AS unassigned
+      FROM task.vw_tasks_enriched e ${scoped} ${listFilter}
+    `)) as unknown as TaskStats[];
+    return rows[0] ?? { open: 0, todo: 0, in_progress: 0, blocked: 0, completed: 0, overdue: 0, due_soon: 0, unassigned: 0 };
   });
 }
 
@@ -349,8 +422,17 @@ export async function updateTask(ctx: TaskCtx, id: string, data: UpdateTaskInput
 }
 
 // ── DELETE (soft) ────────────────────────────────────────────────────────────
+// Runs in the SERVICE transaction, not withRoleTx: task.tasks RLS hides deleted rows
+// (USING ... NOT is_deleted) and Postgres re-applies that to the UPDATE's new row, so
+// an app_user UPDATE that sets is_deleted = TRUE is always refused (a 500). The service
+// has already checked WHO may delete (creator or tasks.edit.any); this statement is
+// fenced by the gateway-verified org_id and sets the actor for the audit trigger.
 export async function softDeleteTask(ctx: TaskCtx, id: string): Promise<void> {
-  await withRoleTx(ctx, async (tx) => {
+  // The service transaction below bypasses withRoleTx, which is what enforced the
+  // read-only defence for a role without platform.write — keep it explicit.
+  if (ctx.readOnly) throw new ForbiddenError('Your role has read-only access');
+  await withServiceTx(async (tx) => {
+    await tx.execute(sql`SELECT set_config('app.current_user_id', ${ctx.user_id}, true)`);
     const res = (await tx.execute(sql`
       UPDATE task.tasks
       SET is_deleted = TRUE, is_active = FALSE, deleted_at = CLOCK_TIMESTAMP(), deleted_by = ${ctx.user_id}

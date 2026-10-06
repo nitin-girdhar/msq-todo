@@ -10,6 +10,9 @@ import {
   updateTaskSchema,
   listTasksSchema,
   listMineTasksSchema,
+  exportTasksSchema,
+  taskStatsSchema,
+  bulkUpdateTasksSchema,
   createTaskCommentSchema,
   idParamSchema,
 } from './tasks.schema.js';
@@ -22,6 +25,13 @@ export async function tasksRouter(app: FastifyInstance) {
 
   // '/tasks/mine' must be registered before '/tasks/:id' so 'mine' is not captured as an id.
   app.get('/tasks/mine', { preHandler: [...gate, requireCapability(CAPABILITY.TASKS_VIEW), validate({ query: listMineTasksSchema })] }, ctrl.mine);
+
+  // Static paths below are registered before '/tasks/:id' on purpose.
+  app.get('/tasks/stats', { preHandler: [...gate, requireCapability(CAPABILITY.TASKS_VIEW), validate({ query: taskStatsSchema })] }, ctrl.stats);
+  app.get('/tasks/export', { preHandler: [...gate, requireCapability(CAPABILITY.TASKS_VIEW), requireCapability(CAPABILITY.TASKS_EXPORT, 'You do not have permission to export tasks'), validate({ query: exportTasksSchema })] }, ctrl.exportCsv);
+  // Bulk is a shortcut for many single edits, so it needs the single-edit capability too:
+  // tasks.bulk alone must never let someone change a task they could not PATCH one by one.
+  app.post('/tasks/bulk', { preHandler: [...gate, requireCapability(CAPABILITY.TASKS_EDIT, 'You do not have permission to edit tasks'), requireCapability(CAPABILITY.TASKS_BULK, 'You do not have permission to bulk update tasks'), validate({ body: bulkUpdateTasksSchema })] }, ctrl.bulk);
 
   app.get('/tasks', { preHandler: [...gate, requireCapability(CAPABILITY.TASKS_VIEW), validate({ query: listTasksSchema })] }, ctrl.list);
   app.post('/tasks', { preHandler: [...gate, requireCapability(CAPABILITY.TASKS_CREATE, 'You do not have permission to create tasks'), validate({ body: createTaskSchema })] }, ctrl.create);

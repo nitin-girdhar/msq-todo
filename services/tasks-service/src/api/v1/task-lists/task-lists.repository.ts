@@ -15,6 +15,7 @@
 
 import { sql } from 'drizzle-orm';
 import { withRoleTx, withServiceTx, type RoleTxContext, type DrizzleTx } from '@platform/db';
+import { ForbiddenError } from '../../../lib/errors.js';
 import type { CreateTaskListInput, UpdateTaskListInput, ListTaskListsInput } from '@task/validation';
 
 // `capabilities` (Tier C3) rides along so the service-layer scope gates can ask
@@ -24,7 +25,14 @@ type Row = Record<string, unknown>;
 
 const SELECT = sql`
   tl.id::text, tl.org_id::text, tl.name, tl.description, tl.owner_id::text,
-  uo.full_name AS owner_name, tl.visibility, tl.is_active, tl.created_at, tl.updated_at
+  uo.full_name AS owner_name, tl.visibility, tl.is_active, tl.created_at, tl.updated_at,
+  -- Unfinished tasks in the list (Lists & Scopes cards). Counted under the same
+  -- transaction as the list itself, so it can never describe a list the caller
+  -- could not already see.
+  (SELECT COUNT(*)::int
+     FROM task.tasks tk
+     JOIN task.task_statuses st ON st.id = tk.status_id
+    WHERE tk.list_id = tl.id AND NOT tk.is_deleted AND NOT st.is_terminal) AS open_task_count
 `;
 const FROM = sql`
   FROM task.task_lists tl
@@ -144,8 +152,19 @@ export async function updateTaskList(ctx: TaskCtx, id: string, data: UpdateTaskL
 // Soft-delete the list and detach its tasks (set list_id NULL). The FK is
 // ON DELETE SET NULL for the hard-delete path; because we soft-delete (UPDATE),
 // we replicate that detach explicitly in the same transaction.
+// Soft delete runs in the SERVICE transaction, not withRoleTx: the table's RLS
+// policy hides deleted rows (USING ... NOT is_deleted), and Postgres re-applies
+// that to the UPDATE's new row, so an app_user UPDATE that sets is_deleted = TRUE
+// is always refused ("new row violates row-level security policy") — a 500. The
+// service layer has already decided WHO may delete (owner or tasks.edit.any); the
+// statement is fenced by the gateway-verified org_id, and the actor is set for the
+// audit trigger.
 export async function softDeleteTaskList(ctx: TaskCtx, id: string): Promise<void> {
-  await withRoleTx(ctx, async (tx) => {
+  // The service transaction below bypasses withRoleTx, which is what enforced the
+  // read-only defence for a role without platform.write — keep it explicit.
+  if (ctx.readOnly) throw new ForbiddenError('Your role has read-only access');
+  await withServiceTx(async (tx) => {
+    await tx.execute(sql`SELECT set_config('app.current_user_id', ${ctx.user_id}, true)`);
     await tx.execute(sql`
       UPDATE task.task_lists
       SET is_deleted = TRUE, is_active = FALSE, deleted_at = CLOCK_TIMESTAMP(), deleted_by = ${ctx.user_id}

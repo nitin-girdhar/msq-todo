@@ -7,4 +7,12 @@
 //
 // Who an assigner may PICK is a separate, hierarchy question — see
 // getAssignableUsers' 'collaboration' scope.
-export { canAssignTasks } from '@task/authz';
+export {
+  canAssignTasks,
+  canDeleteTasks,
+  canBulkUpdateTasks,
+  canExportTasks,
+  canViewTaskLists,
+  canManageTaskLists,
+  canDeleteTaskLists,
+} from '@task/authz';

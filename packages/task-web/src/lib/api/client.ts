@@ -4,7 +4,7 @@
 // `/:path*` (apps/web/next.config.ts), so `/tasks/*` and `/task-lists/*`
 // reach tasks-service via the gateway.
 
-import { createApiClient } from '@platform/ui-kit';
+import { createApiClient, withBasePath } from '@platform/ui-kit';
 import type {
   TaskView,
   TaskListView,
@@ -13,6 +13,10 @@ import type {
   TaskStatusName,
   TaskPriorityName,
   TaskVisibility,
+  TaskSlaState,
+  TaskSortKey,
+  TaskStats,
+  BulkUpdateResult,
 } from '../tasks/types';
 
 const { request } = createApiClient('/api');
@@ -45,8 +49,10 @@ export interface ListTasksParams {
   limit?: number | undefined;
   scope?: 'own' | 'team' | 'org' | undefined;
   assignee_id?: string | undefined;
+  unassigned?: boolean | undefined;
   status?: TaskStatusName | undefined;
   priority?: TaskPriorityName | undefined;
+  sla_state?: Exclude<TaskSlaState, 'none'> | undefined;
   list_id?: string | undefined;
   due_before?: string | undefined;
   due_after?: string | undefined;
@@ -54,6 +60,17 @@ export interface ListTasksParams {
   related_entity_id?: string | undefined;
   q?: string | undefined;
   include_completed?: boolean | undefined;
+  sort?: TaskSortKey | undefined;
+  dir?: 'asc' | 'desc' | undefined;
+}
+
+export type ExportTasksParams = Omit<ListTasksParams, 'page' | 'limit'>;
+
+export interface BulkUpdateTasksBody {
+  ids: string[];
+  assignee_id?: string | null | undefined;
+  status_name?: TaskStatusName | undefined;
+  note?: string | null | undefined;
 }
 
 export interface CreateTaskBody {
@@ -90,6 +107,30 @@ export const tasks = {
 
   mine: (params: { page?: number; limit?: number } = {}) =>
     request<ListEnvelope<TaskView>>(`/tasks/mine${qs(params)}`),
+
+  // KPI tiles. Scope only (+ list): they describe the whole board, not the
+  // currently filtered grid.
+  stats: (params: { scope?: 'own' | 'team' | 'org' | undefined; list_id?: string | undefined } = {}) =>
+    request<Envelope<TaskStats>>(`/tasks/stats${qs(params)}`),
+
+  bulkUpdate: (body: BulkUpdateTasksBody) =>
+    request<Envelope<BulkUpdateResult>>('/tasks/bulk', { method: 'POST', body: JSON.stringify(body) }),
+
+  // CSV download. A file, not JSON, so it cannot use `request()`; it lives here
+  // (the API layer) and resolves the mount through withBasePath for the same
+  // reason createApiClient does — fetch() is not given the app's basePath by Next.
+  exportCsv: async (
+    params: ExportTasksParams = {},
+  ): Promise<{ blob: Blob; filename: string; truncated: boolean }> => {
+    const res = await fetch(`${withBasePath('/api')}/tasks/export${qs(params)}`, { credentials: 'include' });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(body.error ?? (res.status === 403 ? 'You do not have permission to export tasks.' : 'Export failed.'));
+    }
+    const disposition = res.headers.get('content-disposition') ?? '';
+    const filename = /filename="?([^";]+)"?/i.exec(disposition)?.[1] ?? 'tasks.csv';
+    return { blob: await res.blob(), filename, truncated: res.headers.get('x-export-truncated') === 'true' };
+  },
 
   get: (id: string) => request<Envelope<TaskView>>(`/tasks/${id}`),
 

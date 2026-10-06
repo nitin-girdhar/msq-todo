@@ -15,7 +15,7 @@ headers {
 }
 
 docs {
-  Filters: assignee_id, status, priority, list_id, due_before, due_after,
+  Filters: assignee_id, unassigned, status, priority, sla_state, list_id, due_before, due_after,
   related_entity_type + related_entity_id, q (title search), include_completed.
-  Scope: own (default) | team (rank >= 60) | org (rank >= 80).
+  Scope: own (default) | team (tasks.view.team) | org (tasks.view.org). sort + dir (see Export Tasks).
 }

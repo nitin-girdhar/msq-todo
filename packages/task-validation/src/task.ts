@@ -90,13 +90,20 @@ export const updateTaskSchema = z
     },
   );
 
-export const listTasksSchema = z.object({
-  page:                z.coerce.number().int().positive().default(1),
-  limit:               z.coerce.number().int().min(1).max(100).default(20),
+// Whitelisted sort keys: the repository maps each to a fixed column expression,
+// so a client value never reaches the SQL text.
+const TASK_SORT_KEYS = ['created_at', 'due_at', 'priority', 'status', 'task_no', 'title'] as const;
+const TASK_SLA_STATES = ['overdue', 'due_soon', 'ok'] as const;
+
+// The filters shared by the list, stats-free export and bulk-select paths.
+const taskFilterShape = {
   scope:               z.enum(['own', 'team', 'org']).default('own'),
   assignee_id:         z.string().uuid().optional(),
+  // `true` = only tasks nobody owns (the Team "unassigned" tile); wins over assignee_id.
+  unassigned:          queryBool(false),
   status:              z.enum(TASK_STATUS_NAMES).optional(),
   priority:            z.enum(TASK_PRIORITY_NAMES).optional(),
+  sla_state:           z.enum(TASK_SLA_STATES).optional(),
   list_id:             z.string().uuid().optional(),
   due_before:          z.string().datetime({ offset: true }).optional(),
   due_after:           z.string().datetime({ offset: true }).optional(),
@@ -104,7 +111,38 @@ export const listTasksSchema = z.object({
   related_entity_id:   z.string().uuid().optional(),
   q:                   z.string().max(200).trim().optional(),
   include_completed:   queryBool(false),
+  sort:                z.enum(TASK_SORT_KEYS).default('created_at'),
+  dir:                 z.enum(['asc', 'desc']).default('desc'),
+};
+
+export const listTasksSchema = z.object({
+  page:                z.coerce.number().int().positive().default(1),
+  limit:               z.coerce.number().int().min(1).max(100).default(20),
+  ...taskFilterShape,
 });
+
+// CSV export: same filters, one bounded page (no paging for the caller).
+export const exportTasksSchema = z.object({ ...taskFilterShape });
+
+// KPI tiles. Scope only (+ an optional list): the tiles describe the whole board,
+// not the currently filtered grid, so they stay put while the user filters.
+export const taskStatsSchema = z.object({
+  scope:   z.enum(['own', 'team', 'org']).default('own'),
+  list_id: z.string().uuid().optional(),
+});
+
+// Bulk reassign / change status. Each id is authorised on its own server-side.
+export const bulkUpdateTasksSchema = z
+  .object({
+    ids:         z.array(z.string().uuid()).min(1).max(100),
+    assignee_id: z.string().uuid().nullable().optional(),
+    status_name: z.enum(TASK_STATUS_NAMES).optional(),
+    note:        z.string().max(2000).trim().nullable().optional(),
+  })
+  .refine((d) => d.assignee_id !== undefined || d.status_name !== undefined, {
+    message: 'Provide assignee_id and/or status_name',
+    path: ['assignee_id'],
+  });
 
 export const listMineTasksSchema = z.object({
   page:  z.coerce.number().int().positive().default(1),
@@ -127,5 +165,8 @@ export type ListTaskListsInput = z.infer<typeof listTaskListsSchema>;
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 export type ListTasksInput = z.infer<typeof listTasksSchema>;
+export type ExportTasksInput = z.infer<typeof exportTasksSchema>;
+export type TaskStatsInput = z.infer<typeof taskStatsSchema>;
+export type BulkUpdateTasksInput = z.infer<typeof bulkUpdateTasksSchema>;
 export type ListMineTasksInput = z.infer<typeof listMineTasksSchema>;
 export type CreateTaskCommentInput = z.infer<typeof createTaskCommentSchema>;

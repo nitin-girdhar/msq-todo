@@ -1,0 +1,22 @@
+meta {
+  name: Task Stats (KPI tiles)
+  type: http
+  seq: 17
+}
+
+get {
+  url: {{baseUrl}}/tasks/stats?scope=own
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: auth_token={{authToken}}
+}
+
+docs {
+  Counts for the KPI tiles: open, todo, in_progress, blocked, completed, overdue,
+  due_soon, unassigned. Same scope rules as GET /tasks (own | team needs
+  tasks.view.team | org needs tasks.view.org). Optional list_id.
+  Expect 403 for scope=team/org without the matching capability.
+}

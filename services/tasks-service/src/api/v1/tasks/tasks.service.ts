@@ -12,9 +12,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { logActivity } from '@platform/audit-log';
-import { canViewTeamTasks, canViewOrgTasks, canAdministerTasks } from '@task/authz';
-import { ForbiddenError, NotFoundError } from '../../../lib/errors.js';
+import { canViewTeamTasks, canViewOrgTasks, canAdministerTasks, canAssignTasks } from '@task/authz';
+import { AppError, ForbiddenError, NotFoundError } from '../../../lib/errors.js';
 import { publishTaskEvent } from '../../../lib/events.js';
+import { toCsv } from '../../../lib/csv.js';
 import * as repo from './tasks.repository.js';
 import type { TaskCtx, TaskRow } from './tasks.repository.js';
 import type {
@@ -22,6 +23,9 @@ import type {
   UpdateTaskInput,
   ListTasksInput,
   ListMineTasksInput,
+  ExportTasksInput,
+  TaskStatsInput,
+  BulkUpdateTasksInput,
 } from '@task/validation';
 
 // ── Visibility / authorization ──────────────────────────────────────────────
@@ -68,15 +72,65 @@ async function loadVisible(ctx: TaskCtx, id: string): Promise<TaskRow> {
   return row;
 }
 
-// ── Reads ──────────────────────────────────────────────────────────────────
-export async function listTasks(ctx: TaskCtx, filters: ListTasksInput) {
-  if (filters.scope === 'team' && !canViewTeamTasks(ctx)) {
+// The team / org scopes are gated by capability; `own` is open to every holder of
+// tasks.view. Shared by list, stats and export so they cannot drift apart.
+function assertScopeAllowed(ctx: TaskCtx, scope: 'own' | 'team' | 'org'): void {
+  if (scope === 'team' && !canViewTeamTasks(ctx)) {
     throw new ForbiddenError('Insufficient rank for the team task scope');
   }
-  if (filters.scope === 'org' && !canViewOrgTasks(ctx)) {
+  if (scope === 'org' && !canViewOrgTasks(ctx)) {
     throw new ForbiddenError('Insufficient rank for the org task scope');
   }
+}
+
+// ── Reads ──────────────────────────────────────────────────────────────────
+export async function listTasks(ctx: TaskCtx, filters: ListTasksInput) {
+  assertScopeAllowed(ctx, filters.scope);
   return repo.listTasks(ctx, filters);
+}
+
+export async function getTaskStats(ctx: TaskCtx, input: TaskStatsInput) {
+  assertScopeAllowed(ctx, input.scope);
+  return repo.getTaskStats(ctx, input);
+}
+
+const EXPORT_HEADERS = [
+  'Task', 'Title', 'Description', 'List', 'Status', 'Priority', 'SLA', 'Due',
+  'Assignee', 'Created by', 'Tags', 'Created', 'Completed',
+] as const;
+
+const SLA_LABEL: Record<string, string> = {
+  overdue: 'Overdue', due_soon: 'Due within 24h', ok: 'On track', none: '',
+};
+
+// Timestamps leave the driver as strings like "2026-10-02 17:34:54+00", which
+// spreadsheets mis-parse. ISO 8601 (UTC) opens as a date everywhere.
+function isoOrBlank(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '';
+  const d = new Date(value as string | number | Date);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString();
+}
+
+// The caller's own visibility rules apply exactly as on the grid (same repository
+// scope runner); the export capability only decides whether they may download.
+export async function exportTasksCsv(ctx: TaskCtx, filters: ExportTasksInput) {
+  assertScopeAllowed(ctx, filters.scope);
+  const { rows, truncated } = await repo.listTasksForExport(ctx, filters);
+  const csv = toCsv(
+    EXPORT_HEADERS,
+    rows.map((r) => [
+      `TASK-${String(r['task_no'])}`, r['title'], r['description'], r['list_name'],
+      r['status_label'], r['priority_label'], SLA_LABEL[String(r['sla_state'])] ?? '', isoOrBlank(r['due_at']),
+      r['assignee_name'], r['created_by_name'], r['tags'], isoOrBlank(r['created_at']), isoOrBlank(r['completed_at']),
+    ]),
+  );
+  void logActivity({
+    action_type: 'tasks_exported',
+    performed_by: ctx.user_id,
+    org_id: ctx.org_id,
+    new_value: { scope: filters.scope, rows: rows.length, truncated },
+  });
+  return { csv, truncated, count: rows.length };
 }
 
 export async function listMine(ctx: TaskCtx, filters: ListMineTasksInput) {
@@ -134,6 +188,71 @@ export async function updateTask(ctx: TaskCtx, id: string, data: UpdateTaskInput
     new_value: { task_id: id, status: data.status_name },
   });
   return repo.getTaskView(ctx, id);
+}
+
+export interface BulkUpdateOutcome {
+  id: string;
+  ok: boolean;
+  error?: string;
+}
+
+// Reassign / change status for many tasks. Every id is authorised exactly like a
+// single PATCH (visible to the caller AND editable by them) and runs in its own
+// transaction, so one task the caller may not touch is reported and skipped
+// instead of failing -- or worse, silently applying -- the rest. A missing id and
+// a forbidden one read the same ("not found") so ids cannot be probed.
+export async function bulkUpdateTasks(ctx: TaskCtx, input: BulkUpdateTasksInput) {
+  // Handing a task to someone else is an assignment, whatever endpoint does it.
+  if (input.assignee_id !== undefined && input.assignee_id !== ctx.user_id && !canAssignTasks(ctx)) {
+    throw new ForbiddenError('You do not have permission to assign tasks');
+  }
+  const ids = [...new Set(input.ids)];
+  const patch: UpdateTaskInput = {
+    ...(input.assignee_id !== undefined ? { assignee_id: input.assignee_id } : {}),
+    ...(input.status_name !== undefined ? { status_name: input.status_name } : {}),
+    ...(input.note != null && input.status_name !== undefined ? { note: input.note } : {}),
+  };
+
+  const results: BulkUpdateOutcome[] = [];
+  for (const id of ids) {
+    try {
+      const row = await repo.getTaskRow(ctx, id);
+      if (!row || !(await canViewTask(ctx, row)) || !(await canEditTask(ctx, row))) {
+        results.push({ id, ok: false, error: 'Task not found or you are not allowed to change it' });
+        continue;
+      }
+      const result = await repo.updateTask(ctx, id, patch);
+      if (result.assignee_changed && result.assignee_id && result.assignee_id !== ctx.user_id) {
+        void publishTaskEvent({
+          type: 'task:assigned',
+          task_id: id,
+          recipient_id: result.assignee_id,
+          org_id: ctx.org_id,
+          tenant_id: ctx.tenant_id,
+          actor_id: ctx.user_id,
+        });
+      }
+      results.push({ id, ok: true });
+    } catch (err) {
+      // Only our own typed errors carry a message safe to show; anything else
+      // (a raw DB error) is reported generically and left to the server log.
+      results.push({ id, ok: false, error: err instanceof AppError ? err.message : 'Update failed' });
+    }
+  }
+
+  const updated = results.filter((r) => r.ok).map((r) => r.id);
+  void logActivity({
+    action_type: 'tasks_bulk_updated',
+    performed_by: ctx.user_id,
+    org_id: ctx.org_id,
+    new_value: {
+      task_ids: updated,
+      assignee_id: input.assignee_id,
+      status: input.status_name,
+      skipped: results.length - updated.length,
+    },
+  });
+  return { results, updated: updated.length, failed: results.length - updated.length };
 }
 
 export async function deleteTask(ctx: TaskCtx, id: string) {
