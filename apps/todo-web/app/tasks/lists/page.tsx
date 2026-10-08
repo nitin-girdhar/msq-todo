@@ -1,6 +1,6 @@
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { buildLoginUrl } from '@platform/ui-kit';
-import { canViewTaskLists } from '@task/authz';
+import { canViewTaskLists, canViewTasks } from '@task/authz';
 import { getServerSession } from '@platform/ui-kit/server';
 import { TaskListsShell } from '@task/web';
 
@@ -11,6 +11,9 @@ export default async function TaskListsPage() {
   if (!result) redirect(buildLoginUrl());
   // Advisory only (the nav hides the link too): tasks-service and RLS re-check
   // tasks.lists.view on every call. Without it, back to the tasks dashboard.
-  if (!canViewTaskLists(result.session)) redirect('/tasks');
+  if (!canViewTaskLists(result.session)) {
+    if (canViewTasks(result.session)) redirect('/tasks');
+    notFound();
+  }
   return <TaskListsShell actor={result.session} />;
 }

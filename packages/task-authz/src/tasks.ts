@@ -21,6 +21,21 @@ export function canViewTasks(actor: CapabilityHolder): boolean {
   return can(actor, CAPABILITY.TASKS_VIEW);
 }
 
+/** May create a task (tasks.create) — the "+ New task" button and quick add. */
+export function canCreateTasks(actor: CapabilityHolder): boolean {
+  return can(actor, CAPABILITY.TASKS_CREATE);
+}
+
+/** May read and post notes on a task (tasks.comment). */
+export function canCommentOnTasks(actor: CapabilityHolder): boolean {
+  return can(actor, CAPABILITY.TASKS_COMMENT);
+}
+
+/** May read a task's status audit trail (tasks.history.view). */
+export function canViewTaskHistory(actor: CapabilityHolder): boolean {
+  return can(actor, CAPABILITY.TASKS_HISTORY_VIEW);
+}
+
 /** May request the team/subtree task scope (?scope=team). */
 export function canViewTeamTasks(actor: CapabilityHolder): boolean {
   return can(actor, CAPABILITY.TASKS_VIEW_TEAM);

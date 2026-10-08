@@ -19,6 +19,7 @@ import { notifyTasksChanged } from '../../hooks/useOverdueTaskCount';
 import {
   canAssignTasks,
   canBulkUpdateTasks,
+  canCreateTasks,
   canDeleteTasks,
   canExportTasks,
 } from '../../lib/tasks/permissions';
@@ -85,6 +86,7 @@ export default function TaskHubShell({ actor, scope }: Props) {
   const canAssign = canAssignTasks(actor);
   const canBulk = canBulkUpdateTasks(actor);
   const canExport = canExportTasks(actor);
+  const canCreate = canCreateTasks(actor);
 
   // The saved choice is read after mount so server and first client render agree.
   useEffect(() => { setView(readView()); }, []);
@@ -226,7 +228,7 @@ export default function TaskHubShell({ actor, scope }: Props) {
                 {exporting ? 'Exporting…' : 'Export CSV'}
               </Button>
             )}
-            <Button variant="primary" onClick={() => setCreateOpen(true)}>+ New task</Button>
+            {canCreate && <Button variant="primary" onClick={() => setCreateOpen(true)}>+ New task</Button>}
           </>
         }
       />
@@ -237,7 +239,7 @@ export default function TaskHubShell({ actor, scope }: Props) {
 
         <TaskStatsCards scope={scope} stats={stats} active={activeTile(filters)} onSelect={selectTile} />
 
-        {!isTeam && <TaskQuickAdd onCreate={quickAdd} />}
+        {!isTeam && canCreate && <TaskQuickAdd onCreate={quickAdd} />}
 
         <div className="flex flex-wrap items-end justify-between gap-3">
           <TaskFilterBar

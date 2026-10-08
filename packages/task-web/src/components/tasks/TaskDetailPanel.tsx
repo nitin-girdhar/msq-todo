@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { SessionUser } from '@platform/types';
 import { Button, SpeechInputButton, UserPicker, appendDictation } from '@platform/ui-kit';
 import { tasks as tasksApi } from '../../lib/api/client';
+import { canCommentOnTasks, canViewTaskHistory } from '../../lib/tasks/permissions';
 import {
   TASK_PRIORITY_OPTIONS,
   TASK_STATUS_OPTIONS,
@@ -59,7 +60,10 @@ export default function TaskDetailPanel({
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const [tab, setTab] = useState<Tab>('comments');
+  // Notes are tasks.comment, the audit trail is tasks.history.view: each tab exists only for its holder.
+  const mayComment = canCommentOnTasks(actor);
+  const mayViewHistory = canViewTaskHistory(actor);
+  const [tab, setTab] = useState<Tab>(mayComment ? 'comments' : 'history');
   const [comments, setComments] = useState<TaskCommentView[]>([]);
   const [commentBody, setCommentBody] = useState('');
   const [commentBusy, setCommentBusy] = useState(false);
@@ -330,9 +334,9 @@ export default function TaskDetailPanel({
         </div>
       </div>
 
-      <section aria-label="Notes and audit history">
+      {(mayComment || mayViewHistory) && <section aria-label="Notes and audit history">
         <div role="tablist" className="flex gap-4 border-b border-outline-variant">
-          {([['comments', `Notes & comments (${comments.length})`], ['history', `Audit history (${history.length})`]] as const).map(([id, label]) => (
+          {([...(mayComment ? [['comments', `Notes & comments (${comments.length})`]] : []), ...(mayViewHistory ? [['history', `Audit history (${history.length})`]] : [])] as Array<[Tab, string]>).map(([id, label]) => (
             <button
               key={id}
               type="button"
@@ -401,7 +405,7 @@ export default function TaskDetailPanel({
             )}
           </div>
         )}
-      </section>
+      </section>}
     </div>
   );
 }
