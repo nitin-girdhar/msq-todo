@@ -219,7 +219,7 @@ export default function TaskHubShell({ actor, scope }: Props) {
     <div className="flex w-full flex-1 flex-col">
       <PageHeader
         title={isTeam ? 'Team tasks' : 'My Tasks'}
-        subtitle={isTeam ? 'Work across your team, with SLA status.' : `Everything you created or are assigned, ${actor.name || actor.email}.`}
+        info={isTeam ? 'Work across your team, with SLA status.' : `Everything you created or are assigned, ${actor.name || actor.email}.`}
         tabs={<TasksTabs actor={actor} />}
         actions={
           <>
@@ -233,7 +233,7 @@ export default function TaskHubShell({ actor, scope }: Props) {
         }
       />
 
-      <PageBody>
+      <PageBody dense>
         {error && <Alert tone="error">{error}</Alert>}
         {notice && <Alert tone="success">{notice}</Alert>}
 

@@ -77,7 +77,7 @@ export default function TaskDetailShell({ actor, taskId }: Props) {
         tabs={<TasksTabs actor={actor} />}
       />
 
-      <PageBody>
+      <PageBody dense>
         <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-xs text-on-surface-variant">
           <Link href="/tasks" className="font-semibold text-primary hover:underline">My Tasks</Link>
           <span aria-hidden>/</span>

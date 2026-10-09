@@ -143,7 +143,14 @@ export async function getTask(ctx: TaskCtx, id: string) {
 }
 
 // ── Writes ───────────────────────────────────────────────────────────────────
+// Handing a task to someone else is an assignment, whatever endpoint does it:
+// create, edit and bulk all require tasks.assign. Taking a task yourself does not.
+function assertCanAssign(ctx: TaskCtx): void {
+  if (!canAssignTasks(ctx)) throw new ForbiddenError('You do not have permission to assign tasks');
+}
+
 export async function createTask(ctx: TaskCtx, data: CreateTaskInput) {
+  if (data.assignee_id && data.assignee_id !== ctx.user_id) assertCanAssign(ctx);
   const result = await repo.createTask(ctx, data);
   if (result.assignee_id && result.assignee_id !== ctx.user_id) {
     void publishTaskEvent({
@@ -169,6 +176,10 @@ export async function updateTask(ctx: TaskCtx, id: string, data: UpdateTaskInput
   const row = await loadVisible(ctx, id);
   if (!(await canEditTask(ctx, row))) {
     throw new ForbiddenError('You are not allowed to edit this task');
+  }
+  // An edit form re-sends the current assignee; only a real change is an assignment.
+  if (data.assignee_id !== undefined && data.assignee_id !== row.assignee_id && data.assignee_id !== ctx.user_id) {
+    assertCanAssign(ctx);
   }
   const result = await repo.updateTask(ctx, id, data);
   if (result.assignee_changed && result.assignee_id && result.assignee_id !== ctx.user_id) {
@@ -202,10 +213,7 @@ export interface BulkUpdateOutcome {
 // instead of failing -- or worse, silently applying -- the rest. A missing id and
 // a forbidden one read the same ("not found") so ids cannot be probed.
 export async function bulkUpdateTasks(ctx: TaskCtx, input: BulkUpdateTasksInput) {
-  // Handing a task to someone else is an assignment, whatever endpoint does it.
-  if (input.assignee_id !== undefined && input.assignee_id !== ctx.user_id && !canAssignTasks(ctx)) {
-    throw new ForbiddenError('You do not have permission to assign tasks');
-  }
+  if (input.assignee_id !== undefined && input.assignee_id !== ctx.user_id) assertCanAssign(ctx);
   const ids = [...new Set(input.ids)];
   const patch: UpdateTaskInput = {
     ...(input.assignee_id !== undefined ? { assignee_id: input.assignee_id } : {}),
@@ -256,8 +264,9 @@ export async function bulkUpdateTasks(ctx: TaskCtx, input: BulkUpdateTasksInput)
 }
 
 export async function deleteTask(ctx: TaskCtx, id: string) {
-  const row = await repo.getTaskRow(ctx, id);
-  if (!row) throw new NotFoundError('Task not found');
+  // Visibility first: a task in someone else's private list does not exist for an
+  // admin, so it cannot be deleted by id either.
+  const row = await loadVisible(ctx, id);
   // Creator or org admin (rank ≥ 80).
   if (row.created_by !== ctx.user_id && !canAdministerTasks(ctx)) {
     throw new ForbiddenError('Only the creator or an org admin can delete this task');

@@ -49,7 +49,13 @@ export async function createTaskList(ctx: TaskCtx, data: CreateTaskListInput) {
 async function loadForWrite(ctx: TaskCtx, id: string): Promise<repo.TaskListRow> {
   const row = await repo.getTaskListRow(ctx, id);
   if (!row) throw new NotFoundError('Task list not found');
-  // Owner or org admin may mutate/delete.
+  // A private list exists only for its owner (same rule as assertCanView), so an
+  // admin gets the same 404 as for a list that is not there. Deleting it would
+  // detach its tasks and surface them as standalone tasks admins can see.
+  if (row.visibility === 'private' && row.owner_id !== ctx.user_id) {
+    throw new NotFoundError('Task list not found');
+  }
+  // Owner or org admin may mutate/delete a team or org list.
   if (row.owner_id !== ctx.user_id && !canAdministerTasks(ctx)) {
     throw new ForbiddenError('Only the list owner or an org admin can modify this list');
   }

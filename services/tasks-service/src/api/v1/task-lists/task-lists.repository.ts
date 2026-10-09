@@ -156,20 +156,25 @@ export async function updateTaskList(ctx: TaskCtx, id: string, data: UpdateTaskL
 // policy hides deleted rows (USING ... NOT is_deleted), and Postgres re-applies
 // that to the UPDATE's new row, so an app_user UPDATE that sets is_deleted = TRUE
 // is always refused ("new row violates row-level security policy") — a 500. The
-// service layer has already decided WHO may delete (owner or tasks.edit.any); the
-// statement is fenced by the gateway-verified org_id, and the actor is set for the
-// audit trigger.
+// service layer has already decided WHO may delete (owner, or tasks.edit.any for a
+// team/org list); the statement is fenced by the gateway-verified org_id, and the
+// actor is set for the audit trigger. RLS no longer backs this up, so the private
+// rule is repeated in the statement, and the tasks are detached only when the list
+// row was actually deleted.
 export async function softDeleteTaskList(ctx: TaskCtx, id: string): Promise<void> {
   // The service transaction below bypasses withRoleTx, which is what enforced the
   // read-only defence for a role without platform.write — keep it explicit.
   if (ctx.readOnly) throw new ForbiddenError('Your role has read-only access');
   await withServiceTx(async (tx) => {
     await tx.execute(sql`SELECT set_config('app.current_user_id', ${ctx.user_id}, true)`);
-    await tx.execute(sql`
+    const deleted = (await tx.execute(sql`
       UPDATE task.task_lists
       SET is_deleted = TRUE, is_active = FALSE, deleted_at = CLOCK_TIMESTAMP(), deleted_by = ${ctx.user_id}
       WHERE id = ${id} AND org_id = ${ctx.org_id} AND NOT is_deleted
-    `);
+        AND (visibility <> 'private' OR owner_id = ${ctx.user_id})
+      RETURNING id::text
+    `)) as unknown as Array<{ id: string }>;
+    if (deleted.length === 0) return;
     await tx.execute(sql`
       UPDATE task.tasks SET list_id = NULL
       WHERE list_id = ${id} AND org_id = ${ctx.org_id} AND NOT is_deleted

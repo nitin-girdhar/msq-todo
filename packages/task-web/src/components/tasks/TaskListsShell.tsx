@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { SessionUser } from '@platform/types';
-import { Alert, Button, PageBody, PageHeader } from '@platform/ui-kit';
+import { Alert, Button, InfoTip, PageBody, PageHeader } from '@platform/ui-kit';
 import { useTerm } from '@platform/ui-kit/branding';
 import { canAdministerTasks, canViewOrgTasks, canViewTeamTasks } from '@task/authz';
 import { taskLists as taskListsApi } from '../../lib/api/client';
@@ -81,20 +81,23 @@ export default function TaskListsShell({ actor }: Props) {
     <div className="flex w-full flex-1 flex-col">
       <PageHeader
         title="Lists & Scopes"
-        subtitle={`${lists.length} list${lists.length === 1 ? '' : 's'} you can see. A list decides who can see the tasks in it.`}
+        subtitle={`${lists.length} list${lists.length === 1 ? '' : 's'} you can see`}
+        info="A list decides who can see the tasks in it."
         tabs={<TasksTabs actor={actor} />}
         actions={canManage ? <Button variant="primary" onClick={() => { setEditing(undefined); setFormOpen(true); }}>+ New list</Button> : undefined}
       />
 
-      <PageBody>
+      <PageBody dense>
         {error && <Alert tone="error">{error}</Alert>}
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {(['private', 'team', 'org'] as const).map((v) => (
             <div key={v} className="rounded-xl bg-surface-container-lowest p-3 shadow-card">
-              <span className="text-label-sm uppercase tracking-wider text-outline">{visibilityLabel(v, branchWord)}</span>
+              <span className="flex items-center gap-1.5 text-label-sm uppercase tracking-wider text-outline">
+                {visibilityLabel(v, branchWord)}
+                <InfoTip label={`Who can see ${visibilityLabel(v, branchWord)} lists`}>{v === 'org' ? `Everyone in the ${branchWord.toLowerCase()}` : TIER_STYLE[v].blurb}</InfoTip>
+              </span>
               <p className="text-headline-lg font-bold tabular-nums text-on-surface">{countOf(v)}</p>
-              <p className="text-body-sm text-on-surface-variant">{v === 'org' ? `Everyone in the ${branchWord.toLowerCase()}` : TIER_STYLE[v].blurb}</p>
             </div>
           ))}
         </div>
